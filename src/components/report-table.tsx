@@ -25,6 +25,7 @@ interface ReportTableProps {
 
 interface DailySummary {
   date: string;
+  rawDate: Date;
   location: string;
   helmeted: number;
   unhelmeted: number;
@@ -35,10 +36,12 @@ export function ReportTable({ history }: ReportTableProps) {
   const [date, setDate] = useState<Date>();
 
   const dailySummaries = history.reduce<Record<string, DailySummary>>((acc, item) => {
-    const dateStr = format(new Date(item.date), "yyyy-MM-dd");
+    const itemDate = new Date(item.date);
+    const dateStr = format(itemDate, "yyyy-MM-dd");
     if (!acc[dateStr]) {
       acc[dateStr] = {
-        date: format(new Date(item.date), "PPP"),
+        date: format(itemDate, "PPP"),
+        rawDate: itemDate,
         location: item.location, // simplified for summary
         helmeted: 0,
         unhelmeted: 0,
@@ -173,7 +176,7 @@ export function ReportTable({ history }: ReportTableProps) {
                         {Object.values(dailySummaries).map((item, index) => {
                             const compliance = item.total > 0 ? ((item.helmeted / item.total) * 100).toFixed(1) : "0.0";
                             return (
-                            <TableRow key={index} className="cursor-pointer" onClick={() => handleDateSelect(new Date(item.date))}>
+                            <TableRow key={index} className="cursor-pointer" onClick={() => handleDateSelect(item.rawDate)}>
                                 <TableCell className="font-medium whitespace-nowrap">{item.date}</TableCell>
                                 <TableCell>{item.location}</TableCell>
                                 <TableCell className="text-center text-green-600 font-medium">{item.helmeted}</TableCell>
