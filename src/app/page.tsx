@@ -1,84 +1,60 @@
+
 "use client";
 
-import { useState } from "react";
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-} from "@/components/ui/sidebar";
-import { LayoutGrid, History } from "lucide-react";
-import Dashboard from "@/components/dashboard";
-import { HelmetEyeLogo } from "@/components/helmet-eye-logo";
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { ArrowRight, PlayCircle } from 'lucide-react';
+import Link from 'next/link';
+import { HelmetEyeLogo } from '@/components/helmet-eye-logo';
 
-// Mock data for detection results
-const MOCK_DETECTION_DATA = {
-  helmetedCount: 78,
-  unhelmetedCount: 22,
-  totalCount: 100,
-  detections: [
-    { id: 'det_1', box: [15, 20, 10, 12], hasHelmet: true },
-    { id: 'det_2', box: [60, 30, 12, 15], hasHelmet: false },
-    { id: 'det_3', box: [30, 50, 11, 13], hasHelmet: true },
-    { id: 'det_4', box: [75, 65, 10, 12], hasHelmet: true },
-  ],
-  history: [
-    { date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", helmeted: 78, unhelmeted: 22 },
-    { date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", helmeted: 62, unhelmeted: 38 },
-    { date: "2024-07-26", time: "17:45", location: "Central Plaza", helmeted: 91, unhelmeted: 9 },
-    { date: "2024-07-25", time: "12:00", location: "Highway 101", helmeted: 120, unhelmeted: 15 },
-    { date: "2024-07-24", time: "18:20", location: "City Bridge", helmeted: 55, unhelmeted: 3 },
-  ],
-};
-
-export default function Home() {
-  const [detectionData, setDetectionData] = useState<any>(null);
-  
-  const handleDetection = () => {
-    // In a real app, this would come from an API call
-    setDetectionData(MOCK_DETECTION_DATA);
-  };
-
-  const handleReset = () => {
-    setDetectionData(null);
-  }
-
+export default function LandingPage() {
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader>
-          <div className="flex items-center gap-2 p-2" onClick={handleReset} role="button">
-            <HelmetEyeLogo className="w-8 h-8 text-primary" />
-            <span className="text-lg font-semibold group-data-[collapsible=icon]:hidden">HelmetEye</span>
+    <div className="flex flex-col min-h-screen bg-background">
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-background/80 backdrop-blur-sm">
+        <Link href="/" className="flex items-center gap-2">
+          <HelmetEyeLogo className="w-8 h-8 text-primary" />
+          <span className="text-xl font-semibold">HelmetEye</span>
+        </Link>
+        <Link href="/dashboard">
+          <Button>
+            Go to Dashboard
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </Link>
+      </header>
+
+      <main className="flex-1">
+        <section className="relative flex items-center justify-center w-full h-screen">
+          <Image
+            src="https://placehold.co/1920x1080.png"
+            alt="Bikers on a road"
+            layout="fill"
+            objectFit="cover"
+            className="absolute inset-0 z-0 object-cover w-full h-full brightness-50"
+            data-ai-hint="bikers road"
+            priority
+          />
+          <div className="relative z-10 text-center text-white p-4 animate-fade-in-up">
+            <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl font-headline">
+              AI-Powered Helmet Detection System
+            </h1>
+            <p className="max-w-2xl mx-auto mt-4 text-lg md:text-xl text-primary-foreground/80">
+              Ensure road safety with smart surveillance. Our AI analyzes video feeds to detect helmet usage in real-time.
+            </p>
+            <div className="flex flex-col justify-center gap-4 mt-8 sm:flex-row">
+              <Link href="/dashboard">
+                <Button size="lg" className="text-white" style={{backgroundColor: 'hsl(var(--accent))'}}>
+                  <PlayCircle className="w-5 h-5 mr-2" />
+                  Start Detection
+                </Button>
+              </Link>
+              <Button size="lg" variant="outline" className="bg-transparent border-white text-white hover:bg-white hover:text-black">
+                Learn More
+              </Button>
+            </div>
           </div>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton isActive>
-                <LayoutGrid />
-                <span className="group-data-[collapsible=icon]:hidden">Dashboard</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton>
-                <History />
-                <span className="group-data-[collapsible=icon]:hidden">History</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-      </Sidebar>
-      <SidebarInset>
-        <Dashboard 
-          onDetect={handleDetection}
-          data={detectionData}
-        />
-      </SidebarInset>
-    </SidebarProvider>
+        </section>
+      </main>
+    </div>
   );
 }
