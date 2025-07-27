@@ -37,6 +37,38 @@ export function ReportTable({ history }: ReportTableProps) {
     return new Date(item.date).toDateString() === date.toDateString();
   });
 
+  const handleExport = () => {
+    const headers = ["Date", "Time", "Location", "Number Plate", "Helmeted", "No Helmet", "Compliance (%)"];
+    const csvRows = [headers.join(",")];
+
+    filteredHistory.forEach(item => {
+        const total = item.helmeted + item.unhelmeted;
+        const compliance = total > 0 ? ((item.helmeted / total) * 100).toFixed(1) : "0.0";
+        const row = [
+            format(new Date(item.date), "yyyy-MM-dd"),
+            item.time,
+            `"${item.location.replace(/"/g, '""')}"`, // Handle commas in location
+            item.numberPlate || 'N/A',
+            item.helmeted,
+            item.unhelmeted,
+            compliance
+        ];
+        csvRows.push(row.join(","));
+    });
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "helmet-detection-report.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Card className="shadow-md">
       <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -67,7 +99,7 @@ export function ReportTable({ history }: ReportTableProps) {
                     />
                 </PopoverContent>
             </Popover>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
                 Export
             </Button>
