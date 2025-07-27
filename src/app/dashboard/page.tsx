@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   SidebarProvider,
   Sidebar,
@@ -16,6 +16,7 @@ import { LayoutGrid, History, Video } from "lucide-react";
 import Dashboard from "@/components/dashboard";
 import { HelmetEyeLogo } from "@/components/helmet-eye-logo";
 import Link from 'next/link';
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Mock data for detection results
 const MOCK_DETECTION_DATA = {
@@ -39,6 +40,14 @@ const MOCK_DETECTION_DATA = {
 
 export default function DashboardPage() {
   const [detectionData, setDetectionData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setIsLoading(false);
+    }, 1500); // Simulate loading delay
+    return () => clearTimeout(timer);
+  }, []);
   
   const handleDetection = () => {
     // In a real app, this would come from an API call
@@ -48,6 +57,28 @@ export default function DashboardPage() {
   const handleReset = () => {
     setDetectionData(null);
   }
+  
+    if (isLoading) {
+        return (
+            <div className="flex min-h-svh bg-muted/40">
+                <div className="hidden md:flex flex-col w-64 border-r bg-background">
+                     <div className="p-4 border-b">
+                        <Skeleton className="h-8 w-32" />
+                    </div>
+                    <div className="flex flex-col p-4 space-y-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </div>
+                <div className="flex-1 p-8 space-y-6">
+                    <Skeleton className="h-10 w-64 mb-4" />
+                    <Skeleton className="w-full h-[400px]" />
+                    <Skeleton className="w-full h-[200px]" />
+                </div>
+            </div>
+        )
+    }
 
   return (
     <SidebarProvider>

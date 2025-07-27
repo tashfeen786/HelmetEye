@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   SidebarProvider,
   Sidebar,
@@ -19,6 +20,7 @@ import { ReportTable } from "@/components/report-table";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 // Mock data for detection results
@@ -33,6 +35,64 @@ const MOCK_HISTORY_DATA = [
 ];
 
 export default function ReportsPage() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setIsLoading(false);
+    }, 1500); // Simulate loading delay
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+        <div className="flex min-h-svh bg-muted/40">
+            <div className="hidden md:flex flex-col w-64 border-r bg-background">
+                 <div className="p-4 border-b">
+                    <Skeleton className="h-8 w-32" />
+                </div>
+                <div className="flex flex-col p-4 space-y-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+            </div>
+            <div className="flex-1 p-8">
+                <header className="flex items-center justify-between mb-6">
+                    <Skeleton className="h-10 w-48" />
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                    </div>
+                </header>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <Skeleton className="h-8 w-64" />
+                            <Skeleton className="h-4 w-96 mt-2" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Skeleton className="h-10 w-48" />
+                            <Skeleton className="h-10 w-24" />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            {[...Array(7)].map((_, i) => (
+                                <div key={i} className="flex items-center p-4 rounded-lg">
+                                    <Skeleton className="h-6 flex-1" />
+                                    <Skeleton className="h-6 flex-1 ml-4" />
+                                    <Skeleton className="h-6 flex-1 ml-4" />
+                                    <Skeleton className="h-6 flex-1 ml-4" />
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                 </Card>
+            </div>
+        </div>
+    )
+  }
 
   return (
     <SidebarProvider>

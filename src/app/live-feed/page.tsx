@@ -13,13 +13,14 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { LayoutGrid, History, Video, CameraOff, VideoOff, Play } from "lucide-react";
+import { LayoutGrid, History, Video, CameraOff, VideoOff, Play, Loader2 } from "lucide-react";
 import { HelmetEyeLogo } from "@/components/helmet-eye-logo";
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 export default function LiveFeedPage() {
@@ -27,6 +28,8 @@ export default function LiveFeedPage() {
     const streamRef = useRef<MediaStream | null>(null);
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const [isLive, setIsLive] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isStartingStream, setIsStartingStream] = useState(false);
     const { toast } = useToast();
 
     const stopStream = useCallback(() => {
@@ -39,6 +42,7 @@ export default function LiveFeedPage() {
     }, []);
 
     const startStream = useCallback(async () => {
+        setIsStartingStream(true);
         try {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 const stream = await navigator.mediaDevices.getUserMedia({video: true});
@@ -62,10 +66,13 @@ export default function LiveFeedPage() {
               title: 'Camera Access Denied',
               description: 'Please enable camera permissions in your browser settings to use this app.',
             });
+          } finally {
+            setIsStartingStream(false);
           }
     }, [toast]);
     
     useEffect(() => {
+        const timer = setTimeout(() => setIsLoading(false), 1000);
         // Initial permission check
         navigator.permissions.query({ name: 'camera' as PermissionName }).then(res => {
             if (res.state === 'granted') {
@@ -79,6 +86,7 @@ export default function LiveFeedPage() {
 
         // Cleanup stream on component unmount
         return () => {
+            clearTimeout(timer);
             stopStream();
         }
     }, [stopStream]);
@@ -89,6 +97,38 @@ export default function LiveFeedPage() {
         } else {
             startStream();
         }
+    }
+    
+    if (isLoading) {
+        return (
+            <div className="flex min-h-svh bg-muted/40">
+                <div className="hidden md:flex flex-col w-64 border-r bg-background">
+                     <div className="p-4 border-b">
+                        <Skeleton className="h-8 w-32" />
+                    </div>
+                    <div className="flex flex-col p-4 space-y-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </div>
+                <div className="flex-1 p-8">
+                     <Skeleton className="h-10 w-48 mb-6" />
+                     <Card>
+                        <CardHeader>
+                            <Skeleton className="h-8 w-64" />
+                            <Skeleton className="h-4 w-96 mt-2" />
+                        </CardHeader>
+                        <CardContent>
+                            <Skeleton className="w-full aspect-video" />
+                            <div className="mt-4 flex gap-4">
+                               <Skeleton className="w-full h-10" />
+                            </div>
+                        </CardContent>
+                     </Card>
+                </div>
+            </div>
+        )
     }
 
   return (
@@ -153,9 +193,9 @@ export default function LiveFeedPage() {
                             )}
                         </div>
                          <div className="mt-4 flex gap-4">
-                            <Button className="w-full text-white" style={{backgroundColor: 'hsl(var(--accent))'}} onClick={handleToggleStream}>
-                                {isLive ? <VideoOff className="mr-2" /> : <Play className="mr-2"/>}
-                                {isLive ? 'Stop Live Feed' : 'Start Live Feed'}
+                            <Button className="w-full text-white" style={{backgroundColor: 'hsl(var(--accent))'}} onClick={handleToggleStream} disabled={isStartingStream}>
+                                {isStartingStream ? <Loader2 className="mr-2 animate-spin"/> : (isLive ? <VideoOff className="mr-2" /> : <Play className="mr-2"/>)}
+                                {isStartingStream ? 'Starting...' : (isLive ? 'Stop Live Feed' : 'Start Live Feed')}
                             </Button>
                         </div>
 
