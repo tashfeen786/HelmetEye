@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { LayoutGrid, History, Video, CameraOff } from "lucide-react";
 import { HelmetEyeLogo } from "@/components/helmet-eye-logo";
@@ -88,10 +89,12 @@ export default function LiveFeedPage() {
                 </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton>
-                <History />
-                <span className="group-data-[collapsible=icon]:hidden">Reports</span>
-              </SidebarMenuButton>
+                <Link href="/dashboard" className="w-full">
+                    <SidebarMenuButton>
+                        <History />
+                        <span className="group-data-[collapsible=icon]:hidden">Reports</span>
+                    </SidebarMenuButton>
+                </Link>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
@@ -145,3 +148,5 @@ export default function LiveFeedPage() {
     </SidebarProvider>
   );
 }
+
+    

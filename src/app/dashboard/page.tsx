@@ -77,10 +77,12 @@ export default function DashboardPage() {
                </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton>
-                <History />
-                <span className="group-data-[collapsible=icon]:hidden">Reports</span>
-              </SidebarMenuButton>
+              <Link href="/dashboard" className="w-full">
+                <SidebarMenuButton>
+                  <History />
+                  <span className="group-data-[collapsible=icon]:hidden">Reports</span>
+                </SidebarMenuButton>
+              </Link>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
@@ -95,3 +97,5 @@ export default function DashboardPage() {
     </SidebarProvider>
   );
 }
+
+    
