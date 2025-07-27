@@ -26,13 +26,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 // Mock data for detection results
 const MOCK_HISTORY_DATA = [
-    { date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", helmeted: 78, unhelmeted: 22, numberPlate: "GA-01-AB-1234" },
-    { date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", helmeted: 62, unhelmeted: 38, numberPlate: "GA-02-CD-5678" },
-    { date: "2024-07-26", time: "17:45", location: "Central Plaza", helmeted: 91, unhelmeted: 9, numberPlate: "GA-03-EF-9012" },
-    { date: "2024-07-25", time: "12:00", location: "Highway 101", helmeted: 120, unhelmeted: 15, numberPlate: "GA-04-GH-3456" },
-    { date: "2024-07-24", time: "18:20", location: "City Bridge", helmeted: 55, unhelmeted: 3, numberPlate: "GA-05-IJ-7890" },
-    { date: "2024-07-23", time: "11:00", location: "Downtown Crossing", helmeted: 88, unhelmeted: 12, numberPlate: "GA-06-KL-1357" },
-    { date: "2024-07-22", time: "16:50", location: "Industrial Park", helmeted: 45, unhelmeted: 5, numberPlate: "GA-07-MN-2468" },
+    { date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", helmeted: 78, unhelmeted: 22 },
+    { date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", helmeted: 62, unhelmeted: 38 },
+    { date: "2024-07-26", time: "17:45", location: "Central Plaza", helmeted: 91, unhelmeted: 9 },
+    { date: "2024-07-25", time: "12:00", location: "Highway 101", helmeted: 120, unhelmeted: 15 },
+    { date: "2024-07-24", time: "18:20", location: "City Bridge", helmeted: 55, unhelmeted: 3 },
+    { date: "2024-07-23", time: "11:00", location: "Downtown Crossing", helmeted: 88, unhelmeted: 12 },
+    { date: "2024-07-22", time: "16:50", location: "Industrial Park", helmeted: 45, unhelmeted: 5 },
 ];
 
 export default function ReportsPage() {

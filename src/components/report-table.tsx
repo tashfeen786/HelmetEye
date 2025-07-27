@@ -25,7 +25,6 @@ interface ReportTableProps {
     location:string;
     helmeted: number;
     unhelmeted: number;
-    numberPlate?: string;
   }[];
 }
 
@@ -38,7 +37,7 @@ export function ReportTable({ history }: ReportTableProps) {
   });
 
   const handleExport = () => {
-    const headers = ["Date", "Time", "Location", "Number Plate", "Helmeted", "No Helmet", "Compliance (%)"];
+    const headers = ["Date", "Time", "Location", "Helmeted", "No Helmet", "Compliance (%)"];
     const csvRows = [headers.join(",")];
 
     filteredHistory.forEach(item => {
@@ -48,7 +47,6 @@ export function ReportTable({ history }: ReportTableProps) {
             format(new Date(item.date), "yyyy-MM-dd"),
             item.time,
             `"${item.location.replace(/"/g, '""')}"`, // Handle commas in location
-            item.numberPlate || "N/A",
             item.helmeted,
             item.unhelmeted,
             compliance
@@ -113,7 +111,6 @@ export function ReportTable({ history }: ReportTableProps) {
                 <TableHead>Date</TableHead>
                 <TableHead>Time</TableHead>
                 <TableHead>Location</TableHead>
-                <TableHead>Number Plate</TableHead>
                 <TableHead className="text-center">Helmeted</TableHead>
                 <TableHead className="text-center">No Helmet</TableHead>
                 <TableHead className="text-center">Compliance</TableHead>
@@ -128,7 +125,6 @@ export function ReportTable({ history }: ReportTableProps) {
                     <TableCell className="font-medium whitespace-nowrap">{format(new Date(item.date), "PPP")}</TableCell>
                     <TableCell>{item.time}</TableCell>
                     <TableCell>{item.location}</TableCell>
-                    <TableCell className="font-mono">{item.numberPlate || 'N/A'}</TableCell>
                     <TableCell className="text-center text-green-600 font-medium">{item.helmeted}</TableCell>
                     <TableCell className="text-center text-red-600 font-medium">{item.unhelmeted}</TableCell>
                     <TableCell className="text-center font-semibold">{compliance}%</TableCell>
