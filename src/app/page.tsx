@@ -42,10 +42,10 @@ export default function LandingPage() {
               Ensure road safety with smart surveillance. Our AI analyzes video feeds to detect helmet usage in real-time.
             </p>
             <div className="flex flex-col justify-center gap-4 mt-8 sm:flex-row">
-              <Link href="/dashboard">
+              <Link href="/live-feed">
                 <Button size="lg" className="text-white" style={{backgroundColor: 'hsl(var(--accent))'}}>
                   <PlayCircle className="w-5 h-5 mr-2" />
-                  Start Detection
+                  Start Live Feed
                 </Button>
               </Link>
               <Button size="lg" variant="outline" className="bg-transparent border-white text-white hover:bg-white hover:text-black">
