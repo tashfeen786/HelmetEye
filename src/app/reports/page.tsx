@@ -26,13 +26,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 // Mock data for detection results
 const MOCK_HISTORY_DATA = [
-    { date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", helmeted: 78, unhelmeted: 22 },
-    { date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", helmeted: 62, unhelmeted: 38 },
-    { date: "2024-07-26", time: "17:45", location: "Central Plaza", helmeted: 91, unhelmeted: 9 },
-    { date: "2024-07-25", time: "12:00", location: "Highway 101", helmeted: 120, unhelmeted: 15 },
-    { date: "2024-07-24", time: "18:20", location: "City Bridge", helmeted: 55, unhelmeted: 3 },
-    { date: "2024-07-23", time: "11:00", location: "Downtown Crossing", helmeted: 88, unhelmeted: 12 },
-    { date: "2024-07-22", time: "16:50", location: "Industrial Park", helmeted: 45, unhelmeted: 5 },
+    { date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", helmeted: 78, unhelmeted: 22, numberPlate: "MH12AB1234" },
+    { date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", helmeted: 62, unhelmeted: 38, numberPlate: "DL3CXY5678" },
+    { date: "2024-07-26", time: "17:45", location: "Central Plaza", helmeted: 91, unhelmeted: 9, numberPlate: "KA01EF9012" },
+    { date: "2024-07-25", time: "12:00", location: "Highway 101", helmeted: 120, unhelmeted: 15, numberPlate: "TN45GH3456" },
+    { date: "2024-07-24", time: "18:20", location: "City Bridge", helmeted: 55, unhelmeted: 3, numberPlate: "GJ05JK7890" },
+    { date: "2024-07-23", time: "11:00", location: "Downtown Crossing", helmeted: 88, unhelmeted: 12, numberPlate: "UP78KL1234" },
+    { date: "2024-07-22", time: "16:50", location: "Industrial Park", helmeted: 45, unhelmeted: 5, numberPlate: "WB02MN5678" },
 ];
 
 export default function ReportsPage() {
@@ -82,6 +82,7 @@ export default function ReportsPage() {
                             {[...Array(7)].map((_, i) => (
                                 <div key={i} className="flex items-center p-4 rounded-lg">
                                     <Skeleton className="h-6 flex-1" />
+                                    <Skeleton className="h-6 flex-1 ml-4" />
                                     <Skeleton className="h-6 flex-1 ml-4" />
                                     <Skeleton className="h-6 flex-1 ml-4" />
                                     <Skeleton className="h-6 flex-1 ml-4" />

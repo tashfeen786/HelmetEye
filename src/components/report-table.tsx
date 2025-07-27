@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react";
@@ -24,6 +25,7 @@ interface ReportTableProps {
     location:string;
     helmeted: number;
     unhelmeted: number;
+    numberPlate?: string;
   }[];
 }
 
@@ -79,6 +81,7 @@ export function ReportTable({ history }: ReportTableProps) {
                 <TableHead>Date</TableHead>
                 <TableHead>Time</TableHead>
                 <TableHead>Location</TableHead>
+                <TableHead>Number Plate</TableHead>
                 <TableHead className="text-center">Helmeted</TableHead>
                 <TableHead className="text-center">No Helmet</TableHead>
                 <TableHead className="text-center">Compliance</TableHead>
@@ -93,6 +96,7 @@ export function ReportTable({ history }: ReportTableProps) {
                     <TableCell className="font-medium whitespace-nowrap">{format(new Date(item.date), "PPP")}</TableCell>
                     <TableCell>{item.time}</TableCell>
                     <TableCell>{item.location}</TableCell>
+                    <TableCell className="font-mono">{item.numberPlate || 'N/A'}</TableCell>
                     <TableCell className="text-center text-green-600 font-medium">{item.helmeted}</TableCell>
                     <TableCell className="text-center text-red-600 font-medium">{item.unhelmeted}</TableCell>
                     <TableCell className="text-center font-semibold">{compliance}%</TableCell>
