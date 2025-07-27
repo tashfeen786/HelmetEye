@@ -17,6 +17,17 @@ import Dashboard from "@/components/dashboard";
 import { HelmetEyeLogo } from "@/components/helmet-eye-logo";
 import Link from 'next/link';
 import { Skeleton } from "@/components/ui/skeleton";
+import { type DetailedDetection } from "@/components/detailed-report-view";
+
+const MOCK_DETAILED_HISTORY: DetailedDetection[] = [
+    { id: 'evt-001', date: "2024-07-28", time: "14:32", location: "Main St & 1st Ave", numberPlate: "B-123-XYZ", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-002', date: "2024-07-28", time: "14:31", location: "Main St & 1st Ave", numberPlate: "C-456-ABC", hasHelmet: false, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-003', date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", numberPlate: "A-789-PQR", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-004', date: "2024-07-27", time: "09:17", location: "Oak Rd & Pine Ln", numberPlate: "D-101-LMN", hasHelmet: false, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-005', date: "2024-07-27", time: "09:16", location: "Oak Rd & Pine Ln", numberPlate: "E-202-JKL", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-006', date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", numberPlate: "F-303-GHI", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-007', date: "2024-07-26", time: "17:45", location: "Central Plaza", numberPlate: "G-404-DEF", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+];
 
 // Mock data for detection results
 const MOCK_DETECTION_DATA = {
@@ -29,13 +40,7 @@ const MOCK_DETECTION_DATA = {
     { id: 'det_3', box: [30, 50, 11, 13], hasHelmet: true },
     { id: 'det_4', box: [75, 65, 10, 12], hasHelmet: true },
   ],
-  history: [
-    { date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", helmeted: 78, unhelmeted: 22 },
-    { date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", helmeted: 62, unhelmeted: 38 },
-    { date: "2024-07-26", time: "17:45", location: "Central Plaza", helmeted: 91, unhelmeted: 9 },
-    { date: "2024-07-25", time: "12:00", location: "Highway 101", helmeted: 120, unhelmeted: 15 },
-    { date: "2024-07-24", time: "18:20", location: "City Bridge", helmeted: 55, unhelmeted: 3 },
-  ],
+  history: MOCK_DETAILED_HISTORY,
 };
 
 export default function DashboardPage() {

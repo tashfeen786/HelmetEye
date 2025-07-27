@@ -22,18 +22,23 @@ import { Bell } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { type DetailedDetection } from "@/components/detailed-report-view";
 
-
-// Mock data for detection results
-const MOCK_HISTORY_DATA = [
-    { date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", helmeted: 78, unhelmeted: 22 },
-    { date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", helmeted: 62, unhelmeted: 38 },
-    { date: "2024-07-26", time: "17:45", location: "Central Plaza", helmeted: 91, unhelmeted: 9 },
-    { date: "2024-07-25", time: "12:00", location: "Highway 101", helmeted: 120, unhelmeted: 15 },
-    { date: "2024-07-24", time: "18:20", location: "City Bridge", helmeted: 55, unhelmeted: 3 },
-    { date: "2024-07-23", time: "11:00", location: "Downtown Crossing", helmeted: 88, unhelmeted: 12 },
-    { date: "2024-07-22", time: "16:50", location: "Industrial Park", helmeted: 45, unhelmeted: 5 },
+const MOCK_HISTORY_DATA: DetailedDetection[] = [
+    { id: 'evt-001', date: "2024-07-28", time: "14:32", location: "Main St & 1st Ave", numberPlate: "B-123-XYZ", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-002', date: "2024-07-28", time: "14:31", location: "Main St & 1st Ave", numberPlate: "C-456-ABC", hasHelmet: false, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-003', date: "2024-07-28", time: "14:30", location: "Main St & 1st Ave", numberPlate: "A-789-PQR", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-004', date: "2024-07-27", time: "09:17", location: "Oak Rd & Pine Ln", numberPlate: "D-101-LMN", hasHelmet: false, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-005', date: "2024-07-27", time: "09:16", location: "Oak Rd & Pine Ln", numberPlate: "E-202-JKL", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-006', date: "2024-07-27", time: "09:15", location: "Oak Rd & Pine Ln", numberPlate: "F-303-GHI", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-007', date: "2024-07-26", time: "17:45", location: "Central Plaza", numberPlate: "G-404-DEF", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-008', date: "2024-07-25", time: "12:05", location: "Highway 101", numberPlate: "H-505-UVW", hasHelmet: false, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-009', date: "2024-07-25", time: "12:00", location: "Highway 101", numberPlate: "I-606-RST", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-010', date: "2024-07-24", time: "18:20", location: "City Bridge", numberPlate: "J-707-OPQ", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-011', date: "2024-07-23", time: "11:00", location: "Downtown Crossing", numberPlate: "K-808-MNO", hasHelmet: false, imageUrl: "https://placehold.co/150x100.png" },
+    { id: 'evt-012', date: "2024-07-22", time: "16:50", location: "Industrial Park", numberPlate: "L-909-IJK", hasHelmet: true, imageUrl: "https://placehold.co/150x100.png" },
 ];
+
 
 export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
