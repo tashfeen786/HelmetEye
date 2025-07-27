@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -47,14 +48,14 @@ export function SummaryPanel({ helmetedCount, unhelmetedCount, totalCount }: Sum
         <div className="grid grid-cols-2 gap-4 text-center">
             <Card className="bg-green-500/10 border-green-500/20">
                 <CardHeader className="p-4">
-                    <CardTitle className="flex items-center justify-center gap-2 text-green-600"><Shield/> Helmeted</CardTitle>
-                    <CardDescription className="text-3xl font-bold text-foreground">{helmetedCount}</CardDescription>
+                    <CardTitle className="flex items-center justify-center gap-2 text-green-600 text-base font-semibold"><Shield/> Helmeted</CardTitle>
+                    <p className="text-3xl font-bold text-foreground">{helmetedCount}</p>
                 </CardHeader>
             </Card>
              <Card className="bg-red-500/10 border-red-500/20">
                 <CardHeader className="p-4">
-                    <CardTitle className="flex items-center justify-center gap-2 text-red-600"><ShieldOff/> No Helmet</CardTitle>
-                    <CardDescription className="text-3xl font-bold text-foreground">{unhelmetedCount}</CardDescription>
+                    <CardTitle className="flex items-center justify-center gap-2 text-red-600 text-base font-semibold"><ShieldOff/> No Helmet</CardTitle>
+                    <p className="text-3xl font-bold text-foreground">{unhelmetedCount}</p>
                 </CardHeader>
             </Card>
         </div>
