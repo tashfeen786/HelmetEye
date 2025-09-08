@@ -1,12 +1,16 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import SQLModel, create_engine
 from pydantic import BaseModel
-from sqlmodel import Field
 from DB_Operations.get_data import get_data
 import sqlite3
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 import cv2
+from models.model import model
+from datetime import datetime
+import os
+import shutil
+from fastapi.staticfiles import StaticFiles
 
 
 # Initialize FastAPI app
@@ -21,16 +25,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve static files (for uploaded images)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # Database setup
 DATABASE_URL = "sqlite:///database.db"
 engine = create_engine(DATABASE_URL)
 SQLModel.metadata.create_all(engine)
-
-# Example database model
-class User(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
-    name: str
-    email: str
 
 # Pydantic model for request validation
 class UserCreate(BaseModel):
@@ -45,35 +46,64 @@ def read_root():
 @app.get("/api/report")
 def get_report():
     print("Fetching report data...")
-    data =  get_data()
+    data = get_data()
     print(data)
     return {"report": data}
 
 
-@app.get("/api/detect_helmet")
-def detect_helmit(request: Request):
-    data = request.json()
-    # Placeholder for helmit detection logic
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/api/detect_helmet")
+async def detect_helmet(file: UploadFile = File(...)):
+    # Save uploaded file
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Run YOLO detection
+    results = model(file_path)
+
+    helmeted = 0
+    unhelmeted = 0
+    history = []
+
+    # Annotate and save detected image
+    annotated_frame = results[0].plot()
+    detected_path = os.path.join(UPLOAD_DIR, f"detected_{file.filename}")
+    cv2.imwrite(detected_path, annotated_frame)
+
+    for r in results:
+        for i, box in enumerate(r.boxes):
+            cls_id = int(box.cls.cpu().numpy()[0])
+            hasHelmet = True if cls_id == 0 else False  # 0=helmet, 1=no-helmet
+            if hasHelmet:
+                helmeted += 1
+            else:
+                unhelmeted += 1
+
+            history.append({
+                "id": f"evt-{i+1:03}",
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "time": datetime.now().strftime("%H:%M"),
+                "location": "Main St & 1st Ave",  # replace with DB/logic
+                "numberPlate": "UNKNOWN",         # if ANPR model exists
+                "hasHelmet": hasHelmet,
+                "imageUrl": f"/{detected_path}"   # detected image path
+            })
+
     data = {
-        "helmetedCount": 700,
-        "unhelmetedCount": 20,
-        "totalCount": 90,
-        "history": [
-            {
-            "id": "evt-001",
-            "date": "2024-07-28",
-            "time": "14:32",
-            "location": "Main St & 1st Ave",
-            "numberPlate": "B-123-XYZ",
-            "hasHelmet": True,
-            "imageUrl": "https://placehold.co/150x100.png"
-            }
-        ]
+        "helmetedCount": helmeted,
+        "unhelmetedCount": unhelmeted,
+        "totalCount": helmeted + unhelmeted,
+        "history": history
     }
-    return {
-        "message": "Helmit detection logic not implemented", 
+
+    return JSONResponse(content={
+        "message": "Helmet detection completed",
         "data": data
-        }
+    })
+
 
 camera = None
 
@@ -81,13 +111,13 @@ camera = None
 def start_stream():
     global camera
     if camera is None:
-        camera = cv2.VideoCapture(0) # laptop/webcam
+        camera = cv2.VideoCapture(0)  # laptop/webcam
     if not camera.isOpened():
         return {"message": "Failed to access camera"}
     return {"message": "Live stream started"}
 
 
-@app.get("/api/stop_stream")
+@app.post("/api/stop_stream")
 def stop_stream():
     global camera
     if camera is not None:
@@ -102,7 +132,7 @@ def generate_frames():
         if camera is None:
             break
         success, frame = camera.read()
-        if not success: 
+        if not success:
             break
         # Encode frame as JPEG
         _, buffer = cv2.imencode('.jpg', frame)

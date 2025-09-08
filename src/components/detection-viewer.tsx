@@ -26,47 +26,61 @@ export function DetectionViewer({ onDetect, detections, onReset }: DetectionView
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = useCallback((files: FileList | null) => {
-    if (files && files[0]) {
-      const file = files[0];
-       if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-      }
-      setPreviewUrl(URL.createObjectURL(file));
-      if(onReset && detections.length > 0) {
-        onReset();
-      }
+    const handleDetectClick = async () => {
+    if (!fileInputRef.current || !fileInputRef.current.files?.[0]) {
+      console.error("No file selected for detection");
+      return;
     }
-  }, [previewUrl, detections, onReset]);
 
-  const handleDetectClick = async () => {
     setIsDetecting(true);
-    // Simulate API call
     console.log("Calling detection API...");
 
-    try{
-      const response = await fetch("http://localhost:8000/api/detect_helmet");
-      // if (!response.ok) {
-      //   throw new Error("Network response was not ok");
-      // }
+    try {
+      const formData = new FormData();
+      formData.append("file", fileInputRef.current.files[0]); // 👈 backend ko file bhej raha hai
+
+      const response = await fetch("http://localhost:8000/api/detect_helmet", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Network response was not ok: ${response.status}`);
+      }
+
       const data = await response.json();
       console.log("API Response:", data);
       onDetect(data);
+    } catch (error) {
+      console.error("Error calling API:", error);
+    } finally {
+      setIsDetecting(false);
     }
-     catch (error) {
-    console.error("Error calling API:", error);
-  } finally {
-    setIsDetecting(false);
-  }
-
   };
-  
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleFileChange(e.dataTransfer.files);
-  }, [handleFileChange]);
 
+const handleFileChange = useCallback((files: FileList | null) => {
+  if (files && files[0]) {
+    const file = files[0];
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(URL.createObjectURL(file));
+
+    if (onReset && detections.length > 0) {
+      onReset();
+    }
+  }
+}, [previewUrl, detections, onReset]);
+
+
+// Drop handler
+const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  e.preventDefault();
+  e.stopPropagation();
+  handleFileChange(e.dataTransfer.files);
+}, [handleFileChange]);
+
+// Drag over (required so browser allows dropping)
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -111,13 +125,11 @@ export function DetectionViewer({ onDetect, detections, onReset }: DetectionView
       <CardContent className="p-4 md:p-6 flex flex-col gap-4">
         <div className="relative aspect-video w-full bg-muted rounded-lg overflow-hidden group" onDragOver={handleDragOver} onDrop={handleDrop}>
           {previewUrl ? (
-            <Image
-              src={previewUrl}
-              alt="Uploaded content preview"
-              layout="fill"
-              objectFit="cover"
-              className="transition-transform duration-300 group-hover:scale-105"
-            />
+                <img
+                  src={previewUrl}
+                  alt="Uploaded content preview"
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800/50">
                 <div 
