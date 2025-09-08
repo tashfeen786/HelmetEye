@@ -54,9 +54,20 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, []);
   
-  const handleDetection = () => {
+  const handleDetection = async () => {
     // In a real app, this would come from an API call
-    setDetectionData(MOCK_DETECTION_DATA);
+    // setDetectionData(MOCK_DETECTION_DATA);
+
+      try {
+    const response = await fetch("http://localhost:8000/api/detect_helmet");
+    if (!response.ok) throw new Error("Network response was not ok");
+    const result = await response.json();
+
+    setDetectionData(result.data); // this contains helmetedCount, unhelmetedCount, totalCount, history
+  } 
+  catch (err) {
+    console.error("Error fetching detection data:", err);
+  }
   };
 
   const handleReset = () => {

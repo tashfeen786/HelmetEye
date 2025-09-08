@@ -1,0 +1,22 @@
+{
+  "helmetedCount": 78,
+  "unhelmetedCount": 22,
+  "totalCount": 100,
+  "detections": [
+    { "id": "det_1", "box": [15, 20, 10, 12], "hasHelmet": true },
+    { "id": "det_2", "box": [60, 30, 12, 15], "hasHelmet": false },
+    { "id": "det_3", "box": [30, 50, 11, 13], "hasHelmet": true },
+    { "id": "det_4", "box": [75, 65, 10, 12], "hasHelmet": true }
+  ],
+  "history": [
+    {
+      "id": "evt-001",
+      "date": "2024-07-28",
+      "time": "14:32",
+      "location": "Main St & 1st Ave",
+      "numberPlate": "B-123-XYZ",
+      "hasHelmet": true,
+      "imageUrl": "https://placehold.co/150x100.png"
+    }
+  ]
+}

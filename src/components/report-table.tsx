@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -32,8 +32,37 @@ interface DailySummary {
   total: number;
 }
 
-export function ReportTable({ history }: ReportTableProps) {
+export function ReportTable() {
   const [date, setDate] = useState<Date>();
+
+  const [history, setHistory] = useState<DetailedDetection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+
+  useEffect(() => {
+    const fetchReport = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch("http://localhost:8000/api/report");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch report: ${response.statusText}`);
+        }
+        const data = await response.json();
+        setHistory(data.report); // backend wraps results in { report: [...] }
+      } catch (err: any) {
+        console.error("Error fetching report:", err);
+        setError(err.message || "Unknown error");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReport();
+  }, []);
+
+  
 
   const dailySummaries = history.reduce<Record<string, DailySummary>>((acc, item) => {
     const itemDate = new Date(item.date);

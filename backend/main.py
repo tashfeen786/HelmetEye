@@ -3,6 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, create_engine, Session
 from pydantic import BaseModel
 from sqlmodel import Field
+from DB_Operations.get_data import get_data
+import sqlite3
+from fastapi.responses import StreamingResponse
+import cv2
+
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -10,7 +15,7 @@ app = FastAPI()
 # Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_origins=["http://192.168.1.7:9002", "http://localhost:9002"],  # React dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,27 +42,79 @@ class UserCreate(BaseModel):
 def read_root():
     return {"message": "Welcome to the FastAPI backend!"}
 
-@app.get("/users")
-def get_users():
-    with Session(engine) as session:
-        users = session.query(User).all()
-        return users
+@app.get("/api/report")
+def get_report():
+    print("Fetching report data...")
+    data =  get_data()
+    print(data)
+    return {"report": data}
 
-@app.post("/users")
-def create_user(user: UserCreate):
-    with Session(engine) as session:
-        new_user = User(name=user.name, email=user.email)
-        session.add(new_user)
-        session.commit()
-        session.refresh(new_user)
-        return new_user
 
-@app.delete("/users/{user_id}")
-def delete_user(user_id: int):
-    with Session(engine) as session:
-        user = session.get(User, user_id)
-        if user:
-            session.delete(user)
-            session.commit()
-            return {"message": "User deleted successfully"}
-        return {"error": "User not found"}
+@app.get("/api/detect_helmet")
+def detect_helmit(request: Request):
+    data = request.json()
+    # Placeholder for helmit detection logic
+    data = {
+        "helmetedCount": 700,
+        "unhelmetedCount": 20,
+        "totalCount": 90,
+        "history": [
+            {
+            "id": "evt-001",
+            "date": "2024-07-28",
+            "time": "14:32",
+            "location": "Main St & 1st Ave",
+            "numberPlate": "B-123-XYZ",
+            "hasHelmet": True,
+            "imageUrl": "https://placehold.co/150x100.png"
+            }
+        ]
+    }
+    return {
+        "message": "Helmit detection logic not implemented", 
+        "data": data
+        }
+
+camera = None
+
+@app.get("/api/start_stream")
+def start_stream():
+    global camera
+    if camera is None:
+        camera = cv2.VideoCapture(0) # laptop/webcam
+    if not camera.isOpened():
+        return {"message": "Failed to access camera"}
+    return {"message": "Live stream started"}
+
+
+@app.get("/api/stop_stream")
+def stop_stream():
+    global camera
+    if camera is not None:
+        camera.release()
+        camera = None
+    return {"message": "Live stream stopped"}
+
+
+def generate_frames():
+    global camera
+    while True:
+        if camera is None:
+            break
+        success, frame = camera.read()
+        if not success: 
+            break
+        # Encode frame as JPEG
+        _, buffer = cv2.imencode('.jpg', frame)
+        frame_bytes = buffer.tobytes()
+        yield (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
+        )
+
+
+@app.get("/api/live_feed")
+def live_feed():
+    if camera is None:
+        return {"message": "Stream not started"}
+    return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")

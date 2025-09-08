@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { UploadCloud, Loader2, X } from "lucide-react";
 
 interface DetectionViewerProps {
-  onDetect: () => void;
+  onDetect: (detection:{
+    id: string;
+    box: [number, number, number, number];
+    hasHelmet: boolean;
+  }[]) => void;
   detections: {
     id: string;
     box: [number, number, number, number]; // [x, y, width, height] in %
@@ -38,9 +42,23 @@ export function DetectionViewer({ onDetect, detections, onReset }: DetectionView
   const handleDetectClick = async () => {
     setIsDetecting(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    onDetect();
+    console.log("Calling detection API...");
+
+    try{
+      const response = await fetch("http://localhost:8000/api/detect_helmet");
+      // if (!response.ok) {
+      //   throw new Error("Network response was not ok");
+      // }
+      const data = await response.json();
+      console.log("API Response:", data);
+      onDetect(data);
+    }
+     catch (error) {
+    console.error("Error calling API:", error);
+  } finally {
     setIsDetecting(false);
+  }
+
   };
   
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -118,9 +136,6 @@ export function DetectionViewer({ onDetect, detections, onReset }: DetectionView
                 </div>
             </div>
           )}
-          {detections.map((d) => (
-            <BoundingBox key={d.id} box={d.box} hasHelmet={d.hasHelmet} />
-          ))}
           <input ref={fileInputRef} id="dropzone-file" type="file" className="hidden" onChange={(e) => handleFileChange(e.target.files)} accept="video/*,image/*" />
           {previewUrl && (
              <Button variant="ghost" size="icon" className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white" onClick={handleReset}>
