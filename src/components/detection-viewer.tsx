@@ -41,7 +41,7 @@ export function DetectionViewer({ onDetect, detections, onReset }: DetectionView
 
   const response = await fetch("http://localhost:8000/api/detect_helmet", {
     method: "POST",
-    body: formData, // 👈 Content-Type auto set ho jata hai multipart/form-data
+    body: formData, //  Content-Type auto set ho jata hai multipart/form-data
   });
 
       if (!response.ok) {
