@@ -36,13 +36,13 @@ export function DetectionViewer({ onDetect, detections, onReset }: DetectionView
     console.log("Calling detection API...");
 
     try {
-      const formData = new FormData();
-      formData.append("file", fileInputRef.current.files[0]); // 👈 backend ko file bhej raha hai
+  const formData = new FormData();
+  formData.append("file", fileInputRef.current!.files![0]); // fileInputRef se file lo
 
-      const response = await fetch("http://localhost:8000/api/detect_helmet", {
-        method: "POST",
-        body: formData,
-      });
+  const response = await fetch("http://localhost:8000/api/detect_helmet", {
+    method: "POST",
+    body: formData, // 👈 Content-Type auto set ho jata hai multipart/form-data
+  });
 
       if (!response.ok) {
         throw new Error(`Network response was not ok: ${response.status}`);
