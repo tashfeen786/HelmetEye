@@ -29,6 +29,7 @@ export function DetectionViewer({ onDetect, detections, onReset }: DetectionView
     const handleDetectClick = async () => {
     if (!fileInputRef.current || !fileInputRef.current.files?.[0]) {
       console.error("No file selected for detection");
+      alert("Please upload an image or video before running detection.");
       return;
     }
 
@@ -45,12 +46,15 @@ export function DetectionViewer({ onDetect, detections, onReset }: DetectionView
   });
 
       if (!response.ok) {
-        throw new Error(`Network response was not ok: ${response.status}`);
+        const errMsg = await response.text();
+        throw new Error(`Network response was not ok: ${response.status} → ${errMsg}`);
       }
 
       const data = await response.json();
       console.log("API Response:", data);
-      onDetect(data);
+      
+    // 👇 Backend response me detections `data.data` ke andar hai
+      onDetect(data.data);
     } catch (error) {
       console.error("Error calling API:", error);
     } finally {
@@ -125,11 +129,17 @@ const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
       <CardContent className="p-4 md:p-6 flex flex-col gap-4">
         <div className="relative aspect-video w-full bg-muted rounded-lg overflow-hidden group" onDragOver={handleDragOver} onDrop={handleDrop}>
           {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt="Uploaded content preview"
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
+            <>
+              <img
+                src={previewUrl}
+                alt="Uploaded content preview"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+              {/* 👇 bounding boxes yahan render honge */}
+              {detections.map((det) => (
+                <BoundingBox key={det.id} box={det.box} hasHelmet={det.hasHelmet} />
+              ))}
+            </>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800/50">
                 <div 
@@ -163,7 +173,7 @@ const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
             </Button>
             <Button
                 onClick={handleDetectClick}
-                disabled={!previewUrl || isDetecting || detections.length > 0}
+                disabled={!previewUrl || isDetecting }
                 className="flex-1 text-white"
                 style={{backgroundColor: 'hsl(var(--accent))'}}
             >

@@ -11,19 +11,34 @@ from datetime import datetime
 import os
 import shutil
 from fastapi.staticfiles import StaticFiles
+import pytesseract
+from PIL import Image
+import numpy as np
+import uuid
+import traceback
+
+
+# --- Add this line after importing pytesseract ---
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Update this path if necessary
 
 
 # Initialize FastAPI app
 app = FastAPI()
 
 # Enable CORS for frontend integration
+from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://192.168.1.7:9002", "http://localhost:9002"],  # React dev server
+    allow_origins=[
+        "http://localhost:9002",
+        "http://192.168.1.7:9002"  # replace with your actual dev machine IP if needed
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Serve static files (for uploaded images)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
@@ -54,57 +69,101 @@ def get_report():
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+
 @app.post("/api/detect_helmet")
 async def detect_helmet(file: UploadFile = File(...)):
-    # Save uploaded file
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        if not file:
+            return JSONResponse(
+                status_code=400,
+                content={"message": "No file uploaded. Please upload an image OR video."}
+            )
 
-    # Run YOLO detection
-    results = model(file_path)
+        # Save uploaded file
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    helmeted = 0
-    unhelmeted = 0
-    history = []
+        # Run YOLO detection
+        results = model(file_path)
 
-    # Annotate and save detected image
-    annotated_frame = results[0].plot()
-    detected_path = os.path.join(UPLOAD_DIR, f"detected_{file.filename}")
-    cv2.imwrite(detected_path, annotated_frame)
+        helmeted = 0
+        unhelmeted = 0
+        history = []
 
-    for r in results:
-        for i, box in enumerate(r.boxes):
-            cls_id = int(box.cls.cpu().numpy()[0])
-            hasHelmet = True if cls_id == 0 else False  # 0=helmet, 1=no-helmet
-            if hasHelmet:
-                helmeted += 1
-            else:
-                unhelmeted += 1
+        # Annotate and save detected image
+        annotated_frame = results[0].plot()
+        detected_path = os.path.join(UPLOAD_DIR, f"detected_{file.filename}")
+        cv2.imwrite(detected_path, annotated_frame)
 
-            history.append({
-                "id": f"evt-{i+1:03}",
-                "date": datetime.now().strftime("%Y-%m-%d"),
-                "time": datetime.now().strftime("%H:%M"),
-                "location": "Main St & 1st Ave",  # replace with DB/logic
-                "numberPlate": "UNKNOWN",         # if ANPR model exists
-                "hasHelmet": hasHelmet,
-                "imageUrl": f"/{detected_path}"   # detected image path
-            })
+        # Open DB connection once per request
+        conn = sqlite3.connect("DB_Operations/events.db")
+        cursor = conn.cursor()
 
-    data = {
-        "helmetedCount": helmeted,
-        "unhelmetedCount": unhelmeted,
-        "totalCount": helmeted + unhelmeted,
-        "history": history
-    }
+        for r in results:
+            for i, box in enumerate(r.boxes):
+                cls_id = int(box.cls.cpu().numpy()[0])
+                hasHelmet = cls_id == 0
+                if hasHelmet:
+                    helmeted += 1
+                else:
+                    unhelmeted += 1
 
-    return JSONResponse(content={
-        "message": "Helmet detection completed",
-        "data": data
-    })
+                number_plate_text = "UNKNOWN"
+                # OCR for number plate
+                if cls_id == 2:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                    plate_crop = annotated_frame[y1:y2, x1:x2]
+                    plate_crop = cv2.cvtColor(plate_crop, cv2.COLOR_BGR2RGB)
+                    plate_text = pytesseract.image_to_string(Image.fromarray(plate_crop))
+                    number_plate_text = plate_text.strip()
 
+                # Unique event ID
+                event_id = f"evt-{uuid.uuid4().hex[:8]}"
 
+                # Append to history
+                history.append({
+                    "id": event_id,
+                    "date": datetime.now().strftime("%Y-%m-%d"),
+                    "time": datetime.now().strftime("%H:%M"),
+                    "location": "Main St & 1st Ave",
+                    "numberPlate": number_plate_text,
+                    "hasHelmet": hasHelmet,
+                    "imageUrl": f"/uploads/detected_{file.filename}"
+                })
+
+                # Insert into DB
+                cursor.execute("""
+                    INSERT INTO events (id, date, time, location, number_plate, has_helmet, image_url)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    event_id,
+                    datetime.now().strftime("%Y-%m-%d"),
+                    datetime.now().strftime("%H:%M"),
+                    "Main St & 1st Ave",
+                    number_plate_text,
+                    int(hasHelmet),
+                    f"/uploads/detected_{file.filename}"
+                ))
+
+        conn.commit()
+        conn.close()
+
+        data = {
+            "helmetedCount": helmeted,
+            "unhelmetedCount": unhelmeted,
+            "totalCount": helmeted + unhelmeted,
+            "history": history
+        }
+
+        return JSONResponse(content={
+            "message": "Helmet detection completed",
+            "data": data
+        })
+
+    except Exception as e:
+        traceback.print_exc()  # prints full error in console
+        return JSONResponse(status_code=500, content={"message": str(e)})
 camera = None
 
 @app.get("/api/start_stream")

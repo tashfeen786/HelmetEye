@@ -42,16 +42,32 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleDetection = async () => {
-    try {
-      const response = await fetch("http://localhost:8000/api/detect_helmet");
-      if (!response.ok) throw new Error("Network response was not ok");
-      const result = await response.json();
-      setDetectionData(result.data);
-    } catch (err) {
-      console.error("Error fetching detection data:", err);
+const handleDetection = async (file: File) => {
+  try {
+    if (!file) {
+      throw new Error("No file provided to detection API");
     }
-  };
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("http://localhost:8000/api/detect_helmet", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errMsg = await response.text();
+      throw new Error(`Network response was not ok: ${response.status} → ${errMsg}`);
+    }
+
+    const result = await response.json();
+    setDetectionData(result.data);
+  } catch (err) {
+    console.error("Error fetching detection data:", err);
+  }
+};
+
 
   const handleReset = () => {
     setDetectionData(null);
