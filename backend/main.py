@@ -16,92 +16,98 @@ from PIL import Image
 import numpy as np
 import uuid
 import traceback
+import re
 
+# --- optional EasyOCR (used if installed) ---
+try:
+    import easyocr
+    EASYOCR_AVAILABLE = True
+except Exception:
+    EASYOCR_AVAILABLE = False
 
-# --- Add this line after importing pytesseract ---
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Update this path if necessary
+# --- Tesseract executable path ---
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # change if needed
 
+# ---------- helper for number-plate OCR ----------
+def extract_plate_text(bgr_crop):
+    """Try EasyOCR first, fall back to Tesseract, return cleaned text."""
+    text = ""
+    if EASYOCR_AVAILABLE:
+        reader = easyocr.Reader(["en"], gpu=False)
+        results = reader.readtext(bgr_crop)
+        if results:
+            text = " ".join(r[1] for r in results)
+    if not text.strip():
+        text = pytesseract.image_to_string(Image.fromarray(cv2.cvtColor(bgr_crop, cv2.COLOR_BGR2RGB)))
+    text = re.sub(r"[^A-Z0-9]", "", text.upper())
+    return text or "UNKNOWN"
 
-# Initialize FastAPI app
+# ---------- FastAPI setup ----------
 app = FastAPI()
-
-# Enable CORS for frontend integration
-from fastapi.middleware.cors import CORSMiddleware
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:9002",
-        "http://192.168.1.7:9002"  # replace with your actual dev machine IP if needed
+        "http://192.168.1.7:9002"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# Serve static files (for uploaded images)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Database setup
 DATABASE_URL = "sqlite:///database.db"
 engine = create_engine(DATABASE_URL)
 SQLModel.metadata.create_all(engine)
 
-# Pydantic model for request validation
 class UserCreate(BaseModel):
     name: str
     email: str
 
-# API Endpoints
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the FastAPI backend!"}
 
 @app.get("/api/report")
 def get_report():
-    print("Fetching report data...")
     data = get_data()
-    print(data)
     return {"report": data}
-
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-
+# ---------- main detection endpoint ----------
 @app.post("/api/detect_helmet")
 async def detect_helmet(file: UploadFile = File(...)):
     try:
         if not file:
-            return JSONResponse(
-                status_code=400,
-                content={"message": "No file uploaded. Please upload an image OR video."}
-            )
+            return JSONResponse(status_code=400,
+                                content={"message": "No file uploaded. Please upload an image OR video."})
 
-        # Save uploaded file
+        # save uploaded file and read original image
         file_path = os.path.join(UPLOAD_DIR, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        orig_img = cv2.imread(file_path)
 
-        # Run YOLO detection
+        # YOLO detection
         results = model(file_path)
 
         helmeted = 0
         unhelmeted = 0
         history = []
 
-        # Annotate and save detected image
+        # annotate frame
         annotated_frame = results[0].plot()
         detected_path = os.path.join(UPLOAD_DIR, f"detected_{file.filename}")
         cv2.imwrite(detected_path, annotated_frame)
 
-        # Open DB connection once per request
         conn = sqlite3.connect("DB_Operations/events.db")
         cursor = conn.cursor()
 
         for r in results:
-            for i, box in enumerate(r.boxes):
+            for box in r.boxes:
                 cls_id = int(box.cls.cpu().numpy()[0])
                 hasHelmet = cls_id == 0
                 if hasHelmet:
@@ -110,18 +116,14 @@ async def detect_helmet(file: UploadFile = File(...)):
                     unhelmeted += 1
 
                 number_plate_text = "UNKNOWN"
-                # OCR for number plate
+                # run OCR if this box is a number plate (class id 2)
                 if cls_id == 2:
                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                    plate_crop = annotated_frame[y1:y2, x1:x2]
-                    plate_crop = cv2.cvtColor(plate_crop, cv2.COLOR_BGR2RGB)
-                    plate_text = pytesseract.image_to_string(Image.fromarray(plate_crop))
-                    number_plate_text = plate_text.strip()
+                    plate_crop = orig_img[y1:y2, x1:x2]
+                    if plate_crop.size > 0:
+                        number_plate_text = extract_plate_text(plate_crop)
 
-                # Unique event ID
                 event_id = f"evt-{uuid.uuid4().hex[:8]}"
-
-                # Append to history
                 history.append({
                     "id": event_id,
                     "date": datetime.now().strftime("%Y-%m-%d"),
@@ -132,7 +134,6 @@ async def detect_helmet(file: UploadFile = File(...)):
                     "imageUrl": f"/uploads/detected_{file.filename}"
                 })
 
-                # Insert into DB
                 cursor.execute("""
                     INSERT INTO events (id, date, time, location, number_plate, has_helmet, image_url)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -155,26 +156,23 @@ async def detect_helmet(file: UploadFile = File(...)):
             "totalCount": helmeted + unhelmeted,
             "history": history
         }
-
-        return JSONResponse(content={
-            "message": "Helmet detection completed",
-            "data": data
-        })
+        return JSONResponse(content={"message": "Helmet detection completed", "data": data})
 
     except Exception as e:
-        traceback.print_exc()  # prints full error in console
+        traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
+
+# ---------- camera streaming ----------
 camera = None
 
 @app.get("/api/start_stream")
 def start_stream():
     global camera
     if camera is None:
-        camera = cv2.VideoCapture(0)  # laptop/webcam
+        camera = cv2.VideoCapture(0)
     if not camera.isOpened():
         return {"message": "Failed to access camera"}
     return {"message": "Live stream started"}
-
 
 @app.post("/api/stop_stream")
 def stop_stream():
@@ -184,7 +182,6 @@ def stop_stream():
         camera = None
     return {"message": "Live stream stopped"}
 
-
 def generate_frames():
     global camera
     while True:
@@ -193,17 +190,13 @@ def generate_frames():
         success, frame = camera.read()
         if not success:
             break
-        # Encode frame as JPEG
         _, buffer = cv2.imencode('.jpg', frame)
-        frame_bytes = buffer.tobytes()
-        yield (
-            b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
-        )
-
+        yield (b"--frame\r\n"
+               b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
 
 @app.get("/api/live_feed")
 def live_feed():
     if camera is None:
         return {"message": "Stream not started"}
-    return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
+    return StreamingResponse(generate_frames(),
+                             media_type="multipart/x-mixed-replace; boundary=frame")
