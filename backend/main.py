@@ -117,8 +117,8 @@ async def detect_helmet(file: UploadFile = File(...)):
                     unhelmeted += 1
 
                 number_plate_text = "UNKNOWN"
-                # run OCR if this box is a number plate (class id 2)
-                if cls_id == 2:
+                # run OCR if this box is a number plate (class id 3)
+                if cls_id == 3:
                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                     plate_crop = orig_img[y1:y2, x1:x2]
                     if plate_crop.size > 0:
