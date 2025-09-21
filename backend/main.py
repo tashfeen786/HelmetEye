@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-
 from sqlmodel import SQLModel, create_engine
 from pydantic import BaseModel
 from DB_Operations.get_data import get_data
@@ -18,6 +17,7 @@ import numpy as np
 import uuid
 import traceback
 import re
+from fastapi.staticfiles import StaticFiles
 
 # --- optional EasyOCR (used if installed) ---
 try:
