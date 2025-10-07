@@ -1,187 +1,167 @@
-
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import Image from "next/image";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UploadCloud, Loader2, X } from "lucide-react";
 
-interface DetectionViewerProps {
-  onDetect: (detection:{
-    id: string;
-    box: [number, number, number, number];
-    hasHelmet: boolean;
-  }[]) => void;
-  detections: {
-    id: string;
-    box: [number, number, number, number]; // [x, y, width, height] in %
-    hasHelmet: boolean;
-  }[];
-  onReset?: () => void;
-}
-
-export function DetectionViewer({ onDetect, detections, onReset }: DetectionViewerProps) {
+export function DetectionViewer() {
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [isVideo, setIsVideo] = useState(false);
+  const [processedUrl, setProcessedUrl] = useState<string | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleDetectClick = async () => {
-    if (!fileInputRef.current || !fileInputRef.current.files?.[0]) {
-      console.error("No file selected for detection");
-      alert("Please upload an image or video before running detection.");
+  const handleFileChange = useCallback((files: FileList | null) => {
+    if (!files || !files[0]) return;
+    const file = files[0];
+
+    if (fileUrl) URL.revokeObjectURL(fileUrl);
+    if (processedUrl) URL.revokeObjectURL(processedUrl);
+
+    const url = URL.createObjectURL(file);
+    setFileUrl(url);
+    setProcessedUrl(null);
+    setIsVideo(file.type.startsWith("video/"));
+  }, [fileUrl, processedUrl]);
+
+  const handleDetectClick = async () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      alert("Please upload a file first.");
       return;
     }
 
     setIsDetecting(true);
-    console.log("Calling detection API...");
 
     try {
-  const formData = new FormData();
-  formData.append("file", fileInputRef.current!.files![0]); // fileInputRef se file lo
+      const formData = new FormData();
+      formData.append("file", file);
 
-  const response = await fetch("http://localhost:8000/api/detect_helmet", {
-    method: "POST",
-    body: formData, //  Content-Type auto set ho jata hai multipart/form-data
-  });
+      const endpoint = isVideo ? "/api/detect_video" : "/api/detect_helmet";
+
+      const response = await fetch(`http://localhost:8000${endpoint}`, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) {
         const errMsg = await response.text();
-        throw new Error(`Network response was not ok: ${response.status} → ${errMsg}`);
+        throw new Error(`Server error: ${errMsg}`);
       }
 
       const data = await response.json();
-      console.log("API Response:", data);
-      
-    // 👇 Backend response me detections `data.data` ke andar hai
-      onDetect(data.data);
-    } catch (error) {
-      console.error("Error calling API:", error);
+
+      if (isVideo && data.processedVideoUrl) {
+        setProcessedUrl(`http://localhost:8000${data.processedVideoUrl}`);
+      } else if (!isVideo && data.data?.processedImageUrl) {
+        setProcessedUrl(`http://localhost:8000${data.data.processedImageUrl}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Detection failed. See console for details.");
     } finally {
       setIsDetecting(false);
     }
   };
 
-const handleFileChange = useCallback((files: FileList | null) => {
-  if (files && files[0]) {
-    const file = files[0];
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewUrl(URL.createObjectURL(file));
-
-    if (onReset && detections.length > 0) {
-      onReset();
-    }
-  }
-}, [previewUrl, detections, onReset]);
-
-
-// Drop handler
-const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.stopPropagation();
-  handleFileChange(e.dataTransfer.files);
-}, [handleFileChange]);
-
-// Drag over (required so browser allows dropping)
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-  
   const handleReset = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewUrl(null);
-    if(fileInputRef.current) {
-        fileInputRef.current.value = "";
-    }
-    if (onReset) {
-      onReset();
-    }
+    if (fileUrl) URL.revokeObjectURL(fileUrl);
+    if (processedUrl) URL.revokeObjectURL(processedUrl);
+    setFileUrl(null);
+    setProcessedUrl(null);
+    setIsVideo(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-
-  const BoundingBox = ({ box, hasHelmet }: { box: [number, number, number, number]; hasHelmet: boolean }) => (
-    <div
-      className={`absolute border-2 ${hasHelmet ? 'border-green-500' : 'border-red-500'} rounded-md shadow-lg animate-in fade-in duration-500`}
-      style={{
-        left: `${box[0]}%`,
-        top: `${box[1]}%`,
-        width: `${box[2]}%`,
-        height: `${box[3]}%`,
-      }}
-    >
-      <span className={`absolute -top-6 left-0 text-xs font-bold px-1 rounded-sm ${hasHelmet ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-        {hasHelmet ? 'Helmet' : 'No Helmet'}
-      </span>
-    </div>
-  );
+  const displayedUrl = processedUrl || fileUrl;
 
   return (
     <Card className="h-full shadow-md">
-       <CardHeader>
-          <CardTitle>Detection Viewer</CardTitle>
-          <CardDescription>Upload an image or video to start detecting helmets.</CardDescription>
-       </CardHeader>
-      <CardContent className="p-4 md:p-6 flex flex-col gap-4">
-        <div className="relative aspect-video w-full bg-muted rounded-lg overflow-hidden group" onDragOver={handleDragOver} onDrop={handleDrop}>
-          {previewUrl ? (
-            <>
-              <img
-                src={previewUrl}
-                alt="Uploaded content preview"
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+      <CardHeader>
+        <CardTitle>Detection Viewer</CardTitle>
+        <CardDescription>
+          Upload an image or video. Detection only works for images or videos uploaded.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div
+          className="relative aspect-video w-full bg-gray-100 rounded-lg overflow-hidden cursor-pointer"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleFileChange(e.dataTransfer.files);
+          }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {displayedUrl ? (
+            isVideo ? (
+              <video
+                src={displayedUrl}
+                className="absolute inset-0 w-full h-full object-contain"
+                controls
               />
-              {/* 👇 bounding boxes yahan render honge */}
-              {detections.map((det) => (
-                <BoundingBox key={det.id} box={det.box} hasHelmet={det.hasHelmet} />
-              ))}
-            </>
+            ) : (
+              <img
+                src={displayedUrl}
+                alt="Preview"
+                className="absolute inset-0 w-full h-full object-contain"
+              />
+            )
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800/50">
-                <div 
-                    className="flex flex-col items-center justify-center w-full h-full text-center"
-                    onClick={() => fileInputRef.current?.click()}
-                 >
-                   <div
-                    className="flex flex-col items-center justify-center w-5/6 h-5/6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-transparent hover:bg-gray-400/20"
-                  >
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6 text-muted-foreground">
-                      <UploadCloud className="w-10 h-10 mb-3" />
-                      <p className="mb-2 text-sm"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                      <p className="text-xs">MP4, WEBM, or JPG</p>
-                    </div>
-                  </div>
-                </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <UploadCloud className="w-10 h-10 mx-auto mb-2" />
+                <p className="text-sm font-semibold">Click to upload or drag & drop</p>
+              </div>
             </div>
           )}
-          <input ref={fileInputRef} id="dropzone-file" type="file" className="hidden" onChange={(e) => handleFileChange(e.target.files)} accept="video/*,image/*" />
-          {previewUrl && (
-             <Button variant="ghost" size="icon" className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white" onClick={handleReset}>
-                <X className="w-5 h-5"/>
-                <span className="sr-only">Clear media</span>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept="image/*,video/*"
+            onChange={(e) => handleFileChange(e.target.files)}
+          />
+
+          {displayedUrl && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 bg-black/50 text-white hover:bg-black/70"
+              onClick={handleReset}
+            >
+              <X className="w-5 h-5" />
+              <span className="sr-only">Clear</span>
             </Button>
           )}
         </div>
-        <div className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
-                <UploadCloud className="mr-2 h-4 w-4" />
-                {previewUrl ? 'Change File' : 'Upload Image/Video'}
-            </Button>
-            <Button
-                onClick={handleDetectClick}
-                disabled={!previewUrl || isDetecting }
-                className="flex-1 text-white"
-                style={{backgroundColor: 'hsl(var(--accent))'}}
-            >
-                {isDetecting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isDetecting ? 'Detecting...' : 'Run Detection'}
-            </Button>
+
+        <div className="flex gap-4">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <UploadCloud className="mr-2 w-4 h-4" />
+            {fileUrl ? "Change File" : "Upload File"}
+          </Button>
+          <Button
+            className="flex-1 text-white"
+            onClick={handleDetectClick}
+            disabled={!fileUrl || isDetecting}
+            style={{ backgroundColor: "hsl(var(--accent))" }}
+          >
+            {isDetecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isDetecting ? "Detecting..." : "Run Detection"}
+          </Button>
         </div>
       </CardContent>
     </Card>
