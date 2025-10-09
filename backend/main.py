@@ -1,14 +1,15 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-import sqlite3, os, shutil, uuid, traceback, re
+import os, shutil, uuid, traceback, re
 from datetime import datetime
 import cv2
 from PIL import Image
 import pytesseract
 from models.model import model  # YOLO model import
 from DB_Operations.get_data import get_data
+from DB_Operations.insert_data import insert_event
 
 # Optional EasyOCR
 try:
@@ -17,20 +18,29 @@ try:
 except Exception:
     EASYOCR_AVAILABLE = False
 
+# ---------- Tesseract Setup ----------
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 # ---------- Helper: OCR ----------
 def extract_plate_text(bgr_crop):
-    text = ""
-    if EASYOCR_AVAILABLE:
-        reader = easyocr.Reader(["en"], gpu=False)
-        results = reader.readtext(bgr_crop)
-        if results:
-            text = " ".join(r[1] for r in results)
-    if not text.strip():
-        text = pytesseract.image_to_string(Image.fromarray(cv2.cvtColor(bgr_crop, cv2.COLOR_BGR2RGB)))
-    text = re.sub(r"[^A-Z0-9]", "", text.upper())
-    return text or "UNKNOWN"
+    try:
+        gray = cv2.cvtColor(bgr_crop, cv2.COLOR_BGR2GRAY)
+        gray = cv2.bilateralFilter(gray, 11, 17, 17)
+
+        text = ""
+        if EASYOCR_AVAILABLE:
+            reader = easyocr.Reader(["en"], gpu=False)
+            results = reader.readtext(gray)
+            if results:
+                text = " ".join(r[1] for r in results)
+
+        if not text.strip():
+            text = pytesseract.image_to_string(Image.fromarray(gray))
+
+        text = re.sub(r"[^A-Z0-9]", "", text.upper())
+        return text if len(text) >= 4 else "UNKNOWN"
+    except Exception:
+        return "UNKNOWN"
 
 # ---------- FastAPI Setup ----------
 app = FastAPI()
@@ -42,7 +52,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------- Static Files Setup ----------
+# ---------- Static Files ----------
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -57,87 +67,88 @@ def get_report():
     data = get_data()
     return {"report": data}
 
-# ---------- Helmet Detection for Image ----------
+# ---------- Image Detection ----------
 @app.post("/api/detect_helmet")
 async def detect_helmet(file: UploadFile = File(...)):
     try:
         if not file:
             return JSONResponse(status_code=400, content={"message": "No file uploaded"})
 
-        # Save uploaded file
+        # Save uploaded image
         unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
+        # Run YOLO model
         orig_img = cv2.imread(file_path)
-
-        # Run YOLO detection
         results = model(file_path)
-
-        helmeted = 0
-        unhelmeted = 0
-        history = []
-
-        # Annotated image
         annotated_frame = results[0].plot()
+
+        # Save annotated image
         detected_filename = f"detected_{unique_filename}"
         detected_path = os.path.join(UPLOAD_DIR, detected_filename)
         cv2.imwrite(detected_path, annotated_frame)
 
-        # Save events in DB
-        conn = sqlite3.connect("DB_Operations/events.db")
-        cursor = conn.cursor()
+        # Parse detections
+        CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
+        riders, helmets, plates = [], [], []
 
         for r in results:
             for box in r.boxes:
                 cls_id = int(box.cls.cpu().numpy()[0])
-                hasHelmet = cls_id == 0
-                if hasHelmet:
-                    helmeted += 1
-                else:
-                    unhelmeted += 1
+                label = CLASS_MAP.get(cls_id, "unknown")
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
 
-                number_plate_text = "UNKNOWN"
-                if cls_id == 3:  # number plate
-                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                    plate_crop = orig_img[y1:y2, x1:x2]
-                    if plate_crop.size > 0:
-                        number_plate_text = extract_plate_text(plate_crop)
+                if label == "rider":
+                    riders.append((x1, y1, x2, y2))
+                elif label == "helmet":
+                    helmets.append((x1, y1, x2, y2))
+                elif label == "number_plate":
+                    plates.append((x1, y1, x2, y2))
 
-                event_id = f"evt-{uuid.uuid4().hex[:8]}"
-                history.append({
-                    "id": event_id,
-                    "date": datetime.now().strftime("%Y-%m-%d"),
-                    "time": datetime.now().strftime("%H:%M"),
-                    "location": "Main St & 1st Ave",
-                    "numberPlate": number_plate_text,
-                    "hasHelmet": hasHelmet,
-                    "imageUrl": f"/uploads/{detected_filename}"
-                })
+        # Handle case: 1 rider, multiple helmets
+        if len(riders) == 1 and len(helmets) > 1:
+            riders = riders * len(helmets)
 
-                cursor.execute("""
-                    INSERT INTO events (id, date, time, location, number_plate, has_helmet, image_url)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    event_id,
-                    datetime.now().strftime("%Y-%m-%d"),
-                    datetime.now().strftime("%H:%M"),
-                    "Main St & 1st Ave",
-                    number_plate_text,
-                    int(hasHelmet),
-                    f"/uploads/{detected_filename}"
-                ))
+        history = []
 
-        conn.commit()
-        conn.close()
+        for rider_box in riders:
+            hasHelmet = len(helmets) > 0
+            plate_text = "UNKNOWN"
+
+            if plates:
+                x1, y1, x2, y2 = map(int, plates[0])
+                crop = orig_img[y1:y2, x1:x2]
+                if crop.size > 0:
+                    plate_text = extract_plate_text(crop)
+
+            event_id = f"evt-{uuid.uuid4().hex[:8]}"
+            event_data = {
+                "id": event_id,
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "time": datetime.now().strftime("%H:%M"),
+                "location": "kotli shaheed chock",
+                "number_plate": plate_text,
+                "has_helmet": hasHelmet,
+                "image_url": f"/uploads/{detected_filename}"
+            }
+
+            insert_event(event_data)
+
+            history.append({
+                "id": event_id,
+                "numberPlate": plate_text,
+                "hasHelmet": hasHelmet,
+                "imageUrl": f"/uploads/{detected_filename}"
+            })
 
         return JSONResponse(content={
             "message": "Helmet detection completed",
             "data": {
-                "helmetedCount": helmeted,
-                "unhelmetedCount": unhelmeted,
-                "totalCount": helmeted + unhelmeted,
+                "totalRiders": len(riders),
+                "helmeted": sum(1 for r in history if r["hasHelmet"]),
+                "unhelmeted": sum(1 for r in history if not r["hasHelmet"]),
                 "history": history,
                 "processedImageUrl": f"/uploads/{detected_filename}"
             }
@@ -147,7 +158,7 @@ async def detect_helmet(file: UploadFile = File(...)):
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
 
-## ---------- Helmet Detection for Video ----------
+# ---------- Video Detection ----------
 @app.post("/api/detect_video")
 async def detect_video(file: UploadFile = File(...)):
     try:
@@ -166,29 +177,62 @@ async def detect_video(file: UploadFile = File(...)):
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out_path = os.path.join(UPLOAD_DIR, f"detected_{unique_filename}")
         fps = cap.get(cv2.CAP_PROP_FPS) or 25
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width, height = int(cap.get(3)), int(cap.get(4))
         out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
 
-        frame_count = 0
-        MAX_FRAMES = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # process all frames
+        frame_count, MAX_FRAMES = 0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         while True:
             ret, frame = cap.read()
             if not ret or frame_count >= MAX_FRAMES:
                 break
 
-            # YOLO detection with logging off
             results = model(frame, verbose=False)
             annotated_frame = results[0].plot()
             out.write(annotated_frame)
             frame_count += 1
 
+            CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
+            riders, helmets, plates = [], [], []
+
+            for r in results:
+                for box in r.boxes:
+                    cls_id = int(box.cls.cpu().numpy()[0])
+                    label = CLASS_MAP.get(cls_id, "unknown")
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                    if label == "rider":
+                        riders.append((x1, y1, x2, y2))
+                    elif label == "helmet":
+                        helmets.append((x1, y1, x2, y2))
+                    elif label == "number_plate":
+                        plates.append((x1, y1, x2, y2))
+
+            for rider_box in riders:
+                hasHelmet = len(helmets) > 0
+                plate_text = "UNKNOWN"
+                if plates:
+                    x1, y1, x2, y2 = map(int, plates[0])
+                    crop = frame[y1:y2, x1:x2]
+                    if crop.size > 0:
+                        plate_text = extract_plate_text(crop)
+
+                event_id = f"evt-{uuid.uuid4().hex[:8]}"
+                event_data = {
+                    "id": event_id,
+                    "date": datetime.now().strftime("%Y-%m-%d"),
+                    "time": datetime.now().strftime("%H:%M"),
+                    "location": "kotli shaheed chock",
+                    "number_plate": plate_text,
+                    "has_helmet": hasHelmet,
+                    "image_url": f"/uploads/detected_{unique_filename}"
+                }
+                insert_event(event_data)
+
         cap.release()
         out.release()
 
         return JSONResponse(content={
-            "message": "Video processed",
+            "message": "Video processed successfully",
             "processedVideoUrl": f"/uploads/detected_{unique_filename}"
         })
 
@@ -196,7 +240,7 @@ async def detect_video(file: UploadFile = File(...)):
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
 
-# ---------- Camera Streaming ----------
+# ---------- Camera Stream ----------
 camera = None
 
 @app.get("/api/start_stream")
@@ -215,16 +259,3 @@ def stop_stream():
         camera.release()
         camera = None
     return {"message": "Live stream stopped"}
-
-def generate_frames():
-    global camera
-    while camera is not None:
-        success, frame = camera.read()
-        if not success:
-            break
-        # YOLO detection optional: verbose=False to avoid logs
-        results = model(frame, verbose=False)
-        annotated_frame = results[0].plot()
-        _, buffer = cv2.imencode('.jpg', annotated_frame)
-        yield (b"--frame\r\n"
-               b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
