@@ -21,7 +21,7 @@ except Exception:
 # ---------- Tesseract Setup ----------
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-# ---------- Helper: OCR ----------
+# ---------- Helper Functions ----------
 def extract_plate_text(bgr_crop):
     try:
         gray = cv2.cvtColor(bgr_crop, cv2.COLOR_BGR2GRAY)
@@ -41,6 +41,31 @@ def extract_plate_text(bgr_crop):
         return text if len(text) >= 4 else "UNKNOWN"
     except Exception:
         return "UNKNOWN"
+
+def box_overlap(box1, box2):
+    """Calculate IoU (Intersection over Union) between two boxes."""
+    x1, y1, x2, y2 = box1
+    x1b, y1b, x2b, y2b = box2
+    inter_x1 = max(x1, x1b)
+    inter_y1 = max(y1, y1b)
+    inter_x2 = min(x2, x2b)
+    inter_y2 = min(y2, y2b)
+    inter_area = max(0, inter_x2 - inter_x1) * max(0, inter_y2 - inter_y1)
+    area1 = (x2 - x1) * (y2 - y1)
+    area2 = (x2b - x1b) * (y2b - y1b)
+    union_area = area1 + area2 - inter_area
+    return inter_area / union_area if union_area > 0 else 0
+
+def find_closest_plate(rider_box, plates):
+    """Find the plate with the highest overlap or closest to the rider."""
+    best_plate = None
+    best_iou = 0
+    for plate in plates:
+        iou = box_overlap(rider_box, plate)
+        if iou > best_iou:
+            best_iou = iou
+            best_plate = plate
+    return best_plate
 
 # ---------- FastAPI Setup ----------
 app = FastAPI()
@@ -92,7 +117,7 @@ async def detect_helmet(file: UploadFile = File(...)):
 
         # Parse detections
         CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
-        riders, helmets, plates = [], [], []
+        riders, helmets, plates, without_helmets = [], [], [], []
 
         for r in results:
             for box in r.boxes:
@@ -104,21 +129,25 @@ async def detect_helmet(file: UploadFile = File(...)):
                     riders.append((x1, y1, x2, y2))
                 elif label == "helmet":
                     helmets.append((x1, y1, x2, y2))
+                elif label == "without_helmet":
+                    without_helmets.append((x1, y1, x2, y2))
                 elif label == "number_plate":
                     plates.append((x1, y1, x2, y2))
-
-        # Handle case: 1 rider, multiple helmets
-        if len(riders) == 1 and len(helmets) > 1:
-            riders = riders * len(helmets)
 
         history = []
 
         for rider_box in riders:
-            hasHelmet = len(helmets) > 0
-            plate_text = "UNKNOWN"
+            # Check if rider overlaps with any helmet
+            hasHelmet = any(box_overlap(rider_box, helmet_box) > 0.1 for helmet_box in helmets)
+            # If no helmet overlap, check for without_helmet
+            if not hasHelmet:
+                hasHelmet = not any(box_overlap(rider_box, wh_box) > 0.1 for wh_box in without_helmets)
 
-            if plates:
-                x1, y1, x2, y2 = map(int, plates[0])
+            # Find closest plate
+            plate_text = "UNKNOWN"
+            closest_plate = find_closest_plate(rider_box, plates)
+            if closest_plate:
+                x1, y1, x2, y2 = closest_plate
                 crop = orig_img[y1:y2, x1:x2]
                 if crop.size > 0:
                     plate_text = extract_plate_text(crop)
@@ -193,7 +222,7 @@ async def detect_video(file: UploadFile = File(...)):
             frame_count += 1
 
             CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
-            riders, helmets, plates = [], [], []
+            riders, helmets, plates, without_helmets = [], [], [], []
 
             for r in results:
                 for box in r.boxes:
@@ -204,14 +233,28 @@ async def detect_video(file: UploadFile = File(...)):
                         riders.append((x1, y1, x2, y2))
                     elif label == "helmet":
                         helmets.append((x1, y1, x2, y2))
+                    elif label == "without_helmet":
+                        without_helmets.append((x1, y1, x2, y2))
                     elif label == "number_plate":
                         plates.append((x1, y1, x2, y2))
 
+            # Save frame as image for events
+            frame_filename = f"frame_{frame_count}_{unique_filename}.jpg"
+            frame_path = os.path.join(UPLOAD_DIR, frame_filename)
+            cv2.imwrite(frame_path, annotated_frame)
+
             for rider_box in riders:
-                hasHelmet = len(helmets) > 0
+                # Check if rider overlaps with any helmet
+                hasHelmet = any(box_overlap(rider_box, helmet_box) > 0.1 for helmet_box in helmets)
+                # If no helmet overlap, check for without_helmet
+                if not hasHelmet:
+                    hasHelmet = not any(box_overlap(rider_box, wh_box) > 0.1 for wh_box in without_helmets)
+
+                # Find closest plate
                 plate_text = "UNKNOWN"
-                if plates:
-                    x1, y1, x2, y2 = map(int, plates[0])
+                closest_plate = find_closest_plate(rider_box, plates)
+                if closest_plate:
+                    x1, y1, x2, y2 = closest_plate
                     crop = frame[y1:y2, x1:x2]
                     if crop.size > 0:
                         plate_text = extract_plate_text(crop)
@@ -224,7 +267,7 @@ async def detect_video(file: UploadFile = File(...)):
                     "location": "kotli shaheed chock",
                     "number_plate": plate_text,
                     "has_helmet": hasHelmet,
-                    "image_url": f"/uploads/detected_{unique_filename}"
+                    "image_url": f"/uploads/{frame_filename}"
                 }
                 insert_event(event_data)
 

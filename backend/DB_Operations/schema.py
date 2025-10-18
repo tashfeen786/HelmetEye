@@ -1,7 +1,11 @@
 import sqlite3
+import os
+
+# Use the same DB path as other files
+DB_PATH = os.path.join("DB_Operations", "events.db")
 
 # Connect to SQLite database (creates file if it doesn’t exist)
-conn = sqlite3.connect("events.db")
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 # Create table matching your response model
