@@ -12,3 +12,11 @@
 - [ ] Test that new detections appear immediately after insertion.
 - [ ] Verify no memory leaks in polling.
 - [ ] Ensure browser caching does not interfere.
+
+# TODO: Fix YOLO Model Import Error
+
+## Backend Changes
+- [x] Add ultralytics to requirements.txt.
+- [x] Create models/model.py to load YOLO model from best.pt.
+- [ ] Install updated requirements (in progress).
+- [x] Test model import after installation completes.
