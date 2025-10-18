@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-DB_PATH = os.getenv("DB_PATH", "DB_Operations\events.db")
+DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "events.db"))
 
 def get_data():
     conn = sqlite3.connect(DB_PATH)

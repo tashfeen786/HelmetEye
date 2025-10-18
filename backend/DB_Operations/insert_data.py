@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 
 load_dotenv()
-DB_PATH = os.getenv("DB_PATH", "DB_Operations/events.db")
+DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "events.db"))
 
 def insert_event(event):
     """Insert single detection event into database"""

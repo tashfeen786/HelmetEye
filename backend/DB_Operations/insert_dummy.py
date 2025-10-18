@@ -1,7 +1,8 @@
 import sqlite3
+import os
 
 # Connect to SQLite database (creates file if it doesn’t exist)
-conn = sqlite3.connect("events.db")
+conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), "events.db"))
 cursor = conn.cursor()
 
 # Insert the provided values

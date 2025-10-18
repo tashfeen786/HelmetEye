@@ -2,7 +2,7 @@ import sqlite3
 import os
 
 # Use the same DB path as other files
-DB_PATH = os.path.join("DB_Operations", "events.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "events.db")
 
 # Connect to SQLite database (creates file if it doesn’t exist)
 conn = sqlite3.connect(DB_PATH)
