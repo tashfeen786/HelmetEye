@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Calendar as CalendarIcon, X } from "lucide-react";
+import { Download, Calendar as CalendarIcon, X, RefreshCw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -38,31 +38,42 @@ export function ReportTable() {
   const [history, setHistory] = useState<DetailedDetection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
+
+  const fetchReport = async (isManualRefresh = false) => {
+    try {
+      if (isManualRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      const response = await fetch("http://localhost:8000/api/report", {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch report: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setHistory(data.report); // backend wraps results in { report: [...] }
+    } catch (err: any) {
+      console.error("Error fetching report:", err);
+      setError(err.message || "Unknown error");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchReport = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch("http://localhost:8000/api/report");
-        if (!response.ok) {
-          throw new Error(`Failed to fetch report: ${response.statusText}`);
-        }
-        const data = await response.json();
-        setHistory(data.report); // backend wraps results in { report: [...] }
-      } catch (err: any) {
-        console.error("Error fetching report:", err);
-        setError(err.message || "Unknown error");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchReport();
 
-    // Set up polling every 30 seconds
-    const intervalId = setInterval(fetchReport, 30000);
+    // Set up polling every 10 seconds
+    const intervalId = setInterval(() => fetchReport(), 10000);
 
     // Cleanup interval on unmount
     return () => clearInterval(intervalId);
@@ -185,6 +196,10 @@ export function ReportTable() {
                     <span className="sr-only">Clear date filter</span>
                 </Button>
             )}
+            <Button variant="outline" onClick={() => fetchReport(true)} disabled={refreshing}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+            </Button>
             <Button variant="outline" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
                 Export

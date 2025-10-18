@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi import Response
 import os, shutil, uuid, traceback, re
 from datetime import datetime
 import cv2
@@ -90,7 +91,11 @@ def read_root():
 @app.get("/api/report")
 def get_report():
     data = get_data()
-    return {"report": data}
+    response = JSONResponse(content={"report": data})
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # ---------- Image Detection ----------
 @app.post("/api/detect_helmet")

@@ -1,6 +1,4 @@
 from ultralytics import YOLO
-from pathlib import Path
 
-# safer cross-platform path handling
-model_path = Path(r"F:\FYP\HelmitUI\HelmetEye\backend\models\best.pt")
-model = YOLO(str(model_path))
+# Load the YOLO model from the best.pt file
+model = YOLO('models/best.pt')

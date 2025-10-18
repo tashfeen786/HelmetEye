@@ -1,11 +1,14 @@
-# TODO: Implement Polling in ReportTable Component
+# TODO: Implement Refresh Mechanism for Report Section
 
-## Steps to Complete:
-- [x] Modify useEffect in ReportTable.tsx to add polling every 30 seconds
-- [x] Ensure interval is cleared on component unmount to prevent memory leaks
-- [x] Test by triggering a new detection and verifying frontend updates automatically
+## Backend Changes
+- [x] Modify /api/report endpoint in main.py to add cache-control headers to prevent browser caching.
 
-## Notes:
-- Polling will re-fetch data from /api/report every 30 seconds.
-- No manual refresh button needed as per user preference.
-- Testing completed: Backend data is being fetched correctly, and polling is implemented. Frontend will now update automatically every 30 seconds with new detections.
+## Frontend Changes
+- [x] Update ReportTable component in ../src/components/report-table.tsx to add a manual refresh button.
+- [x] Reduce polling interval from 30 seconds to 10 seconds.
+- [x] Add fetch options (cache: 'no-cache') to prevent caching in fetch requests.
+
+## Testing
+- [ ] Test that new detections appear immediately after insertion.
+- [ ] Verify no memory leaks in polling.
+- [ ] Ensure browser caching does not interfere.
