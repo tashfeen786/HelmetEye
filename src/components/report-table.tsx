@@ -60,6 +60,12 @@ export function ReportTable() {
     };
 
     fetchReport();
+
+    // Set up polling every 30 seconds
+    const intervalId = setInterval(fetchReport, 30000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   
