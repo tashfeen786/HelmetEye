@@ -10,6 +10,8 @@ def insert_event(event):
     """Insert single detection event into database"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    print("DB insert path:", os.path.abspath(DB_PATH))
+
     cursor.execute("""
         INSERT INTO events (id, date, time, location, number_plate, has_helmet, image_url)
         VALUES (?, ?, ?, ?, ?, ?, ?)

@@ -11,7 +11,9 @@ sample_data = [
    # ("evt-005", "2024-07-26", "14:31", "Main St & 1st Ave", "C-456-ABC", 0, "https://your-image-url.com/image2.png"),
     # ("evt-006", "2024-07-27", "09:17", "Oak Rd & Pine Ln", "D-101-LMN", 0, "https://your-image-url.com/image3.png"),
     # ("evt-008", "2025-09-07", "14:32", "Rawalpindi 6th Road", "B-125-XYZ", 1, "https://your-image-url.com/image1.png"),
-    ("evt-009", "2025-09-07", "18:32", "Double Road", "ISB 123", 0, "https://your-image-url.com/image1.png"),
+    #("evt-009", "2025-09-07", "18:32", "Double Road", "ISB 123", 0, "https://your-image-url.com/image1.png"),
+    ("evt-0010", "2025-10-26", "18:32", "kotli university", "ISB 123", 0, "https://your-image-url.com/image1.png"),
+    ("evt-0010", "2025-10-30", "18:32", "kotli basheer", "ISB 123", 0, "https://your-image-url.com/image1.png"),
 
 ]
 

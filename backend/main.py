@@ -123,7 +123,8 @@ async def detect_helmet(file: UploadFile = File(...)):
         # Parse detections
         CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
         riders, helmets, plates, without_helmets = [], [], [], []
-
+        # print('Results:', results)
+        
         for r in results:
             for box in r.boxes:
                 cls_id = int(box.cls.cpu().numpy()[0])
