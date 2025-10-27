@@ -1,22 +1,20 @@
 import sqlite3
 import os
 
+# Shared database path for the entire project
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DB_PATH = os.path.join(BASE_DIR, "events.db")
+
+print("DB dummy insert path ->", DB_PATH)
+
 # Connect to SQLite database (creates file if it doesn’t exist)
-conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), "events.db"))
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
-# Insert the provided values
+# Insert sample data
 sample_data = [
-    # ("evt-007", "2024-07-28", "14:32", "Rawalpindi 6th Road", "B-123-XYZ", 1, "https://your-image-url.com/image1.png"),
-   # ("evt-005", "2024-07-26", "14:31", "Main St & 1st Ave", "C-456-ABC", 0, "https://your-image-url.com/image2.png"),
-    # ("evt-006", "2024-07-27", "09:17", "Oak Rd & Pine Ln", "D-101-LMN", 0, "https://your-image-url.com/image3.png"),
-    # ("evt-008", "2025-09-07", "14:32", "Rawalpindi 6th Road", "B-125-XYZ", 1, "https://your-image-url.com/image1.png"),
-    #("evt-009", "2025-09-07", "18:32", "Double Road", "ISB 123", 0, "https://your-image-url.com/image1.png"),
-    ("evt-0010", "2025-10-26", "18:32", "kotli university", "ISB 123", 0, "https://your-image-url.com/image1.png"),
-    ("evt-0010", "2025-10-30", "18:32", "kotli basheer", "ISB 123", 0, "https://your-image-url.com/image1.png"),
-
+    ("evt-0011", "2025-10-30", "18:32", "kotli basheer ajk", "ISB 123", 0, "https://your-image-url.com/image1.png"),
 ]
-
 
 cursor.executemany(
     """
@@ -26,6 +24,6 @@ cursor.executemany(
     sample_data
 )
 
-# Commit and close
 conn.commit()
 conn.close()
+print("✅ Dummy data inserted successfully!")

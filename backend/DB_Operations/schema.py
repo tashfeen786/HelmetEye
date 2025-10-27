@@ -1,16 +1,18 @@
 import sqlite3
 import os
 
-# Use the same DB path as other files
-DB_PATH = os.path.join(os.path.dirname(__file__), "events.db")
+# Shared DB path for ALL scripts and backend
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DB_PATH = os.path.join(BASE_DIR, "events.db")
+
+print("DB schema path ->", DB_PATH)
 
 # Connect to SQLite database (creates file if it doesn’t exist)
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
-# Create table matching your response model
-cursor.execute(
-    """
+# Create events table
+cursor.execute("""
     CREATE TABLE IF NOT EXISTS events (
         id TEXT PRIMARY KEY,
         date TEXT NOT NULL,
@@ -20,9 +22,7 @@ cursor.execute(
         has_helmet INTEGER NOT NULL CHECK (has_helmet IN (0,1)),
         image_url TEXT
     )
-    """
-)
+""")
 
-# Commit and close
 conn.commit()
 conn.close()
