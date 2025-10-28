@@ -68,7 +68,9 @@ def find_closest_plate(rider_box, plates):
             best_plate = plate
     return best_plate
 
-# ---------- FastAPI Setup ----------
+print("DB_PATH used by FastAPI:", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "events.db")))
+print("Current working directory:", os.getcwd())
+#FastAPI Setup ----------
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -79,9 +81,10 @@ app.add_middleware(
 )
 
 # ---------- Static Files ----------
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")  # absolute path
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 
 # ---------- Routes ----------
 @app.get("/")
@@ -193,7 +196,7 @@ async def detect_helmet(file: UploadFile = File(...)):
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
 
-# ---------- Video Detection ----------
+#Video Detection 
 @app.post("/api/detect_video")
 async def detect_video(file: UploadFile = File(...)):
     try:
@@ -289,7 +292,7 @@ async def detect_video(file: UploadFile = File(...)):
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
 
-# ---------- Camera Stream ----------
+#Camera Stream 
 camera = None
 
 @app.get("/api/start_stream")
