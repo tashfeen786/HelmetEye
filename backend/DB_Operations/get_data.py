@@ -1,14 +1,15 @@
 import sqlite3
 import os
 
-# Always use the same DB path for backend and scripts
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DB_PATH = os.path.join(BASE_DIR, "events.db")  # Absolute path to project root
+from DB_Operations.db_config import DB_PATH  #Import shared DB path
+
 
 def get_data():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # Access columns by name
     cursor = conn.cursor()
+    print("USING DATABASE ->", DB_PATH)
+    print("Exists:", os.path.exists(DB_PATH))
 
     cursor.execute("SELECT * FROM events ORDER BY date DESC, time DESC")
     rows = cursor.fetchall()

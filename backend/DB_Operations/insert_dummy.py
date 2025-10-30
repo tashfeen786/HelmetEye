@@ -1,9 +1,7 @@
-import sqlite3
 import os
+import sqlite3
+from DB_Operations.db_config import DB_PATH 
 
-# Database path (points to backend/events.db)
-DB_PATH = os.path.join(os.path.dirname(__file__), "events.db")
-print("DB dummy insert path ->", DB_PATH)
 
 # Connect to SQLite database
 conn = sqlite3.connect(DB_PATH)
@@ -24,8 +22,9 @@ CREATE TABLE IF NOT EXISTS events (
 
 # Sample data
 sample_data = [
-    ("evt-001", "2025-10-30", "18:32", "kotli basheer ajk", "ISB 123", 0, "https://your-image-url.com/image1.png"),
-    ("evt-002", "2025-10-30", "18:32", "kotli basheer ajk", "ISB 123", 0, "https://your-image-url.com/image2.png"),
+    #("evt-001", "2025-10-30", "18:32", "kotli basheer ajk", "ISB 123", 0, "https://your-image-url.com/image1.png"),
+    #("evt-002", "2025-10-30", "18:32", "kotli basheer ajk", "ISB 123", 0, "https://your-image-url.com/image2.png"),
+    #("evt-003", "2025-10-30", "21:30", "kotli  MS HOstal ajk", "ISB 123", 0, "https://your-image-url.com/image4.png"),
 ]
 
 # Insert data
