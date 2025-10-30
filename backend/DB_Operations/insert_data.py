@@ -1,5 +1,5 @@
 import sqlite3
-from DB_Operations.db_config import DB_PATH  #Import shared DB path
+from DB_Operations.db_config import DB_PATH  # Import shared DB path
 
 
 def insert_event(event):

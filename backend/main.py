@@ -2,27 +2,39 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi import Response
 import os, shutil, uuid, traceback, re
 from datetime import datetime
 import cv2
 from PIL import Image
 import pytesseract
-from models.model import model  # YOLO model import
+
+from models.model import model
 from DB_Operations.get_data import get_data
 from DB_Operations.insert_data import insert_event
-
-from DB_Operations.db_config import DB_PATH  #Import shared DB path
 
 # Optional EasyOCR
 try:
     import easyocr
     EASYOCR_AVAILABLE = True
-except Exception:
+except ImportError:
     EASYOCR_AVAILABLE = False
 
 # ---------- Tesseract Setup ----------
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+# ---------- FastAPI Setup ----------
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:9002", "http://192.168.1.7:9002"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # ---------- Helper Functions ----------
 def extract_plate_text(bgr_crop):
@@ -46,7 +58,6 @@ def extract_plate_text(bgr_crop):
         return "UNKNOWN"
 
 def box_overlap(box1, box2):
-    """Calculate IoU (Intersection over Union) between two boxes."""
     x1, y1, x2, y2 = box1
     x1b, y1b, x2b, y2b = box2
     inter_x1 = max(x1, x1b)
@@ -60,7 +71,6 @@ def box_overlap(box1, box2):
     return inter_area / union_area if union_area > 0 else 0
 
 def find_closest_plate(rider_box, plates):
-    """Find the plate with the highest overlap or closest to the rider."""
     best_plate = None
     best_iou = 0
     for plate in plates:
@@ -70,24 +80,6 @@ def find_closest_plate(rider_box, plates):
             best_plate = plate
     return best_plate
 
-print("DB_PATH used by FastAPI:", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "events.db")))
-print("Current working directory:", os.getcwd())
-#FastAPI Setup ----------
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:9002", "http://192.168.1.7:9002"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ---------- Static Files ----------
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")  # absolute path
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
-
 # ---------- Routes ----------
 @app.get("/")
 def read_root():
@@ -95,12 +87,17 @@ def read_root():
 
 @app.get("/api/report")
 def get_report():
-    data = get_data()
-    response = JSONResponse(content={"report": data})
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
+    try:
+        data = get_data()
+        return JSONResponse(
+            content={"report": data},
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate",
+                     "Pragma": "no-cache",
+                     "Expires": "0"}
+        )
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"message": str(e)})
 
 # ---------- Image Detection ----------
 @app.post("/api/detect_helmet")
@@ -109,33 +106,27 @@ async def detect_helmet(file: UploadFile = File(...)):
         if not file:
             return JSONResponse(status_code=400, content={"message": "No file uploaded"})
 
-        # Save uploaded image
         unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Run YOLO model
         orig_img = cv2.imread(file_path)
         results = model(file_path)
         annotated_frame = results[0].plot()
 
-        # Save annotated image
         detected_filename = f"detected_{unique_filename}"
         detected_path = os.path.join(UPLOAD_DIR, detected_filename)
         cv2.imwrite(detected_path, annotated_frame)
 
-        # Parse detections
         CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
         riders, helmets, plates, without_helmets = [], [], [], []
-        # print('Results:', results)
-        
+
         for r in results:
             for box in r.boxes:
                 cls_id = int(box.cls.cpu().numpy()[0])
                 label = CLASS_MAP.get(cls_id, "unknown")
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-
                 if label == "rider":
                     riders.append((x1, y1, x2, y2))
                 elif label == "helmet":
@@ -148,13 +139,10 @@ async def detect_helmet(file: UploadFile = File(...)):
         history = []
 
         for rider_box in riders:
-            # Check if rider overlaps with any helmet
-            hasHelmet = any(box_overlap(rider_box, helmet_box) > 0.1 for helmet_box in helmets)
-            # If no helmet overlap, check for without_helmet
+            hasHelmet = any(box_overlap(rider_box, h) > 0.1 for h in helmets)
             if not hasHelmet:
-                hasHelmet = not any(box_overlap(rider_box, wh_box) > 0.1 for wh_box in without_helmets)
+                hasHelmet = not any(box_overlap(rider_box, wh) > 0.1 for wh in without_helmets)
 
-            # Find closest plate
             plate_text = "UNKNOWN"
             closest_plate = find_closest_plate(rider_box, plates)
             if closest_plate:
@@ -198,7 +186,7 @@ async def detect_helmet(file: UploadFile = File(...)):
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
 
-#Video Detection 
+# ---------- Video Detection ----------
 @app.post("/api/detect_video")
 async def detect_video(file: UploadFile = File(...)):
     try:
@@ -230,7 +218,6 @@ async def detect_video(file: UploadFile = File(...)):
             results = model(frame, verbose=False)
             annotated_frame = results[0].plot()
             out.write(annotated_frame)
-            frame_count += 1
 
             CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
             riders, helmets, plates, without_helmets = [], [], [], []
@@ -249,19 +236,11 @@ async def detect_video(file: UploadFile = File(...)):
                     elif label == "number_plate":
                         plates.append((x1, y1, x2, y2))
 
-            # Save frame as image for events
-            frame_filename = f"frame_{frame_count}_{unique_filename}.jpg"
-            frame_path = os.path.join(UPLOAD_DIR, frame_filename)
-            cv2.imwrite(frame_path, annotated_frame)
-
             for rider_box in riders:
-                # Check if rider overlaps with any helmet
-                hasHelmet = any(box_overlap(rider_box, helmet_box) > 0.1 for helmet_box in helmets)
-                # If no helmet overlap, check for without_helmet
+                hasHelmet = any(box_overlap(rider_box, h) > 0.1 for h in helmets)
                 if not hasHelmet:
-                    hasHelmet = not any(box_overlap(rider_box, wh_box) > 0.1 for wh_box in without_helmets)
+                    hasHelmet = not any(box_overlap(rider_box, wh) > 0.1 for wh in without_helmets)
 
-                # Find closest plate
                 plate_text = "UNKNOWN"
                 closest_plate = find_closest_plate(rider_box, plates)
                 if closest_plate:
@@ -278,7 +257,7 @@ async def detect_video(file: UploadFile = File(...)):
                     "location": "kotli shaheed chock",
                     "number_plate": plate_text,
                     "has_helmet": hasHelmet,
-                    "image_url": f"/uploads/{frame_filename}"
+                    "image_url": f"/uploads/frame_{frame_count}_{unique_filename}.jpg"
                 }
                 insert_event(event_data)
 
@@ -294,7 +273,7 @@ async def detect_video(file: UploadFile = File(...)):
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
 
-#Camera Stream 
+# ---------- Camera Stream ----------
 camera = None
 
 @app.get("/api/start_stream")

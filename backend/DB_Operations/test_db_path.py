@@ -1,5 +1,9 @@
 import os
-from db_config import DB_PATH
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from DB_Operations.db_config import DB_PATH  #Import shared DB path
 
 print("Checking if database exists at:", DB_PATH)
 print("Exists?", os.path.exists(DB_PATH))

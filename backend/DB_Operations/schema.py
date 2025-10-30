@@ -2,8 +2,7 @@ import sqlite3
 import os
 
 # Shared DB path for all backend scripts
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DB_PATH = os.path.join(BASE_DIR, "events.db")
+from DB_Operations.db_config import DB_PATH  #Import shared DB path
 
 print("DB schema path ->", DB_PATH)
 
