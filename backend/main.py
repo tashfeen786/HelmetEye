@@ -12,6 +12,8 @@ from models.model import model  # YOLO model import
 from DB_Operations.get_data import get_data
 from DB_Operations.insert_data import insert_event
 
+from DB_Operations.db_config import DB_PATH  #Import shared DB path
+
 # Optional EasyOCR
 try:
     import easyocr
