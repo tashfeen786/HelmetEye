@@ -1,7 +1,9 @@
 import sqlite3
 import os
 
-from DB_Operations.db_config import DB_PATH  #Import shared DB path
+# Get absolute path to project root (one level above current folder)
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DB_PATH = os.path.join(BASE_DIR, "events.db")
 
 
 def get_data():

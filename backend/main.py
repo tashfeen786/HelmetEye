@@ -162,7 +162,9 @@ async def detect_helmet(file: UploadFile = File(...)):
                 "image_url": f"/uploads/{detected_filename}"
             }
 
+            print(f"Inserting event: {event_data}")
             insert_event(event_data)
+            print(f"Event inserted: {event_id}")
 
             history.append({
                 "id": event_id,
