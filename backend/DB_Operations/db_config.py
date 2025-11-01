@@ -1,7 +1,8 @@
+# DB_Operations/db_config.py
 import os
 
-# Get absolute path to project root (one level above current folder)
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# Always point to the backend root directory (two levels up from this file)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "events.db")
 
-print("USING DATABASE ->", DB_PATH)
+print(f"✅ USING DATABASE -> {DB_PATH}")

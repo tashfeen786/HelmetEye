@@ -1,37 +1,48 @@
 import sqlite3
+from DB_Operations.db_config import DB_PATH  # ✅ Import centralized DB path
 import os
-
-# Get absolute path to project root (one level above current folder)
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DB_PATH = os.path.join(BASE_DIR, "events.db")
 
 
 def get_data():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # Access columns by name
-    cursor = conn.cursor()
-    print("USING DATABASE ->", DB_PATH)
-    print("Exists:", os.path.exists(DB_PATH))
+    """Fetch all event records from the database, sorted by date and time."""
+    if not os.path.exists(DB_PATH):
+        print(f"❌ Database not found at {DB_PATH}")
+        return []
 
-    cursor.execute("SELECT * FROM events ORDER BY date DESC, time DESC")
-    rows = cursor.fetchall()
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row  # Access columns by name
+            cursor = conn.cursor()
 
-    response = []
-    for row in rows:
-        response.append({
-            "id": row["id"],
-            "date": row["date"],
-            "time": row["time"],
-            "location": row["location"],
-            "numberPlate": row["number_plate"],
-            "hasHelmet": bool(row["has_helmet"]),
-            "imageUrl": row["image_url"]
-        })
+            print("✅ USING DATABASE ->", DB_PATH)
 
-    conn.close()
-    return response
+            cursor.execute("SELECT * FROM events ORDER BY date DESC, time DESC")
+            rows = cursor.fetchall()
+
+            response = [
+                {
+                    "id": row["id"],
+                    "date": row["date"],
+                    "time": row["time"],
+                    "location": row["location"],
+                    "numberPlate": row["number_plate"],
+                    "hasHelmet": bool(row["has_helmet"]),
+                    "imageUrl": row["image_url"],
+                }
+                for row in rows
+            ]
+
+            print(f"✅ Retrieved {len(response)} records.")
+            return response
+
+    except sqlite3.Error as e:
+        print(f"❌ SQLite error: {e}")
+        return []
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        return []
+
 
 if __name__ == "__main__":
-    print("USING DATABASE ->", DB_PATH)
     data = get_data()
     print(data)
