@@ -101,7 +101,6 @@ def extract_plate_text(bgr_crop):
         return "UNKNOWN"
 
 
-
 def box_overlap(box1, box2):
     x1, y1, x2, y2 = box1
     x1b, y1b, x2b, y2b = box2
@@ -114,6 +113,16 @@ def box_overlap(box1, box2):
     area2 = max(0, (x2b - x1b)) * max(0, (y2b - y1b))
     union_area = area1 + area2 - inter_area
     return inter_area / union_area if union_area > 0 else 0
+
+
+def boxes_are_duplicate(box1, box2):
+    """Return True if two boxes are likely duplicates (same bike/person)."""
+    iou = box_overlap(box1, box2)
+    area1 = max(1, (box1[2] - box1[0])) * max(1, (box1[3] - box1[1]))
+    area2 = max(1, (box2[2] - box2[0])) * max(1, (box2[3] - box2[1]))
+    size_ratio = min(area1, area2) / max(area1, area2) if max(area1, area2) > 0 else 0
+    # IoU threshold and size ratio tuned to allow adjacent bikes but remove duplicates
+    return iou > 0.45 and size_ratio > 0.7
 
 
 def find_closest_plate(rider_box, plates):
@@ -162,7 +171,7 @@ def get_report():
 
 @app.post("/api/detect_helmet")
 async def detect_helmet(file: UploadFile = File(...)):
-    """Handle single image helmet detection and store all detected events."""
+    """Helmet detection endpoint: inserts DB rows per number plate detected."""
     try:
         if not file:
             return JSONResponse(status_code=400, content={"message": "No file uploaded"})
@@ -184,7 +193,7 @@ async def detect_helmet(file: UploadFile = File(...)):
         cv2.imwrite(detected_path, annotated_frame)
 
         CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
-        riders, helmets, plates, without_helmets = [], [], [], []
+        riders, helmets, without_helmets, plates = [], [], [], []
 
         # Parse detections
         for r in results:
@@ -192,7 +201,6 @@ async def detect_helmet(file: UploadFile = File(...)):
                 cls_id = int(box.cls.cpu().numpy()[0])
                 label = CLASS_MAP.get(cls_id, "unknown")
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-
                 if label == "rider":
                     riders.append((x1, y1, x2, y2))
                 elif label == "helmet":
@@ -202,28 +210,23 @@ async def detect_helmet(file: UploadFile = File(...)):
                 elif label == "number_plate":
                     plates.append((x1, y1, x2, y2))
 
+        print(f"[DEBUG] Riders: {len(riders)}, Helmets: {len(helmets)}, Plates: {len(plates)}")
+
         history = []
-        processed_riders = []
 
-        for rider_box in riders:
-            # Skip duplicate riders (overlap > 0.6)
-            if any(box_overlap(rider_box, prev) > 0.6 for prev in processed_riders):
-                continue
-            processed_riders.append(rider_box)
+        # Loop through every detected plate
+        for idx, plate_box in enumerate(plates):
+            x1, y1, x2, y2 = plate_box
+            crop = orig_img[y1:y2, x1:x2]
+            plate_text = extract_plate_text(crop) if crop is not None and crop.size > 0 else "UNKNOWN"
 
-            # Determine if rider has a helmet
-            has_helmet = any(box_overlap(rider_box, h) > 0.05 for h in helmets)
-            if not has_helmet:
-                has_helmet = not any(box_overlap(rider_box, wh) > 0.05 for wh in without_helmets)
-
-            # Find nearest number plate
-            plate_text = "UNKNOWN"
-            closest_plate = find_closest_plate(rider_box, plates)
-            if closest_plate:
-                x1, y1, x2, y2 = closest_plate
-                crop = orig_img[y1:y2, x1:x2]
-                if crop is not None and crop.size > 0:
-                    plate_text = extract_plate_text(crop)
+            # Find closest rider to assign helmet status
+            closest_rider = find_closest_plate(plate_box, riders)
+            has_helmet = False
+            if closest_rider:
+                has_helmet = any(box_overlap(closest_rider, h) > 0.05 for h in helmets)
+                if not has_helmet:
+                    has_helmet = not any(box_overlap(closest_rider, wh) > 0.05 for wh in without_helmets)
 
             event_id = f"evt-{uuid.uuid4().hex[:8]}"
             event_data = {
@@ -236,14 +239,16 @@ async def detect_helmet(file: UploadFile = File(...)):
                 "image_url": f"/uploads/{detected_filename}",
             }
 
+            print(f"[DEBUG] Inserting event {idx} -> {event_data}")
+
             try:
                 insert_event(event_data)
                 if verify_row_written(event_id):
-                    print(f"✅ Event '{event_id}' verified in database!")
+                    print(f"✅ Event '{event_id}' inserted and verified!")
                 else:
                     print(f"❌ Verification failed for {event_id}")
-            except Exception as ins_err:
-                print(f"❌ insert_event raised an exception for {event_id}: {ins_err}")
+            except Exception as e:
+                print(f"❌ DB insert failed for {event_id}: {e}")
                 traceback.print_exc()
                 continue
 
@@ -255,9 +260,9 @@ async def detect_helmet(file: UploadFile = File(...)):
             })
 
         return JSONResponse(content={
-            "message": "Helmet detection completed",
+            "message": "Helmet detection completed (per number plate)",
             "data": {
-                "totalRiders": len(processed_riders),
+                "totalPlates": len(plates),
                 "helmeted": sum(1 for r in history if r["hasHelmet"]),
                 "unhelmeted": sum(1 for r in history if not r["hasHelmet"]),
                 "history": history,
@@ -268,7 +273,6 @@ async def detect_helmet(file: UploadFile = File(...)):
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
-
 
 # ============================================================
 # ✅ VIDEO DETECTION
@@ -313,30 +317,38 @@ async def detect_video(file: UploadFile = File(...)):
             out.write(annotated_frame)
 
             CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
-            helmets, without_helmets, plates = [], [], []
+            riders, helmets, without_helmets, plates = [], [], [], []
 
+            # Parse detections
             for r in results:
                 for box in r.boxes:
                     cls_id = int(box.cls.cpu().numpy()[0])
                     label = CLASS_MAP.get(cls_id, "unknown")
                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                    if label == "helmet":
+                    if label == "rider":
+                        riders.append((x1, y1, x2, y2))
+                    elif label == "helmet":
                         helmets.append((x1, y1, x2, y2))
                     elif label == "without_helmet":
                         without_helmets.append((x1, y1, x2, y2))
                     elif label == "number_plate":
                         plates.append((x1, y1, x2, y2))
 
-            riders = helmets + without_helmets
-            for rider_box in riders:
-                has_helmet = rider_box in helmets
-                plate_text = "UNKNOWN"
-                closest_plate = find_closest_plate(rider_box, plates)
-                if closest_plate:
-                    x1, y1, x2, y2 = closest_plate
-                    crop = frame[y1:y2, x1:x2]
-                    if crop is not None and crop.size > 0:
-                        plate_text = extract_plate_text(crop)
+            print(f"[DEBUG] Frame {frame_count}: Riders={len(riders)}, Plates={len(plates)}, Helmets={len(helmets)}")
+
+            # Insert DB rows per number plate
+            for idx, plate_box in enumerate(plates):
+                x1, y1, x2, y2 = plate_box
+                crop = frame[y1:y2, x1:x2]
+                plate_text = extract_plate_text(crop) if crop is not None and crop.size > 0 else "UNKNOWN"
+
+                # Find closest rider to assign helmet status
+                closest_rider = find_closest_plate(plate_box, riders)
+                has_helmet = False
+                if closest_rider:
+                    has_helmet = any(box_overlap(closest_rider, h) > 0.05 for h in helmets)
+                    if not has_helmet:
+                        has_helmet = not any(box_overlap(closest_rider, wh) > 0.05 for wh in without_helmets)
 
                 event_id = f"evt-{uuid.uuid4().hex[:8]}"
                 event_data = {
@@ -348,8 +360,16 @@ async def detect_video(file: UploadFile = File(...)):
                     "has_helmet": has_helmet,
                     "image_url": f"/uploads/{out_filename}",
                 }
-                insert_event(event_data)
-                event_counter += 1
+
+                print(f"[DEBUG] Frame {frame_count} - Inserting event {idx} -> {event_data}")
+
+                try:
+                    insert_event(event_data)
+                    event_counter += 1
+                except Exception as e:
+                    print(f"❌ DB insert failed for {event_id}: {e}")
+                    traceback.print_exc()
+                    continue
 
             progress = (frame_count / total_frames) * 100
             print(f"[VIDEO PROGRESS] {progress:.1f}%")
@@ -365,63 +385,123 @@ async def detect_video(file: UploadFile = File(...)):
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": str(e)})
-
-# ============================================================
-# ✅ LIVE CAMERA STREAM WITH SAFE STOP
-# ============================================================
 import threading
 import cv2
-from fastapi import FastAPI
+import uuid
+import os
 from fastapi.responses import StreamingResponse
+from datetime import datetime
 
-
+# Globals
 camera = None
 is_streaming = False
 log_threads = []
+FRAME_INTERVAL = 5
+stop_logging = False
 
-# Dummy DB logging function (replace with your actual DB code)
-def log_event_async(frame, results):
-    print("Logging event to DB...")
-    import time
-    time.sleep(0.1)
+def log_event_async(frame):
+    global stop_logging
+    if stop_logging:
+        return
+    try:
+        results = model(frame)
+        CLASS_MAP = {0: "rider", 1: "helmet", 2: "without_helmet", 3: "number_plate"}
+        riders, helmets, without_helmets, plates = [], [], [], []
 
-# Frame generator for live feed
+        for r in results:
+            for box in r.boxes:
+                cls_id = int(box.cls.cpu().numpy()[0])
+                label = CLASS_MAP.get(cls_id, "unknown")
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                if label == "rider":
+                    riders.append((x1, y1, x2, y2))
+                elif label == "helmet":
+                    helmets.append((x1, y1, x2, y2))
+                elif label == "without_helmet":
+                    without_helmets.append((x1, y1, x2, y2))
+                elif label == "number_plate":
+                    plates.append((x1, y1, x2, y2))
+
+        for plate_box in plates:
+            if stop_logging:
+                break
+            x1, y1, x2, y2 = plate_box
+            crop = frame[y1:y2, x1:x2]
+            plate_text = extract_plate_text(crop) if crop is not None and crop.size > 0 else "UNKNOWN"
+
+            closest_rider = find_closest_plate(plate_box, riders)
+            has_helmet = False
+            if closest_rider:
+                has_helmet = any(box_overlap(closest_rider, h) > 0.05 for h in helmets)
+                if not has_helmet:
+                    has_helmet = not any(box_overlap(closest_rider, wh) > 0.05 for wh in without_helmets)
+
+            snapshot_name = f"{uuid.uuid4().hex}_live.jpg"
+            snapshot_path = os.path.join(UPLOAD_DIR, snapshot_name)
+            cv2.imwrite(snapshot_path, frame)
+
+            event_id = f"evt-{uuid.uuid4().hex[:8]}"
+            event_data = {
+                "id": event_id,
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "time": datetime.now().strftime("%H:%M"),
+                "location": "MS Boys College Road, AJK",
+                "number_plate": plate_text,
+                "has_helmet": has_helmet,
+                "image_url": f"/uploads/{snapshot_name}",
+            }
+
+            if stop_logging:
+                break
+
+            try:
+                insert_event(event_data)
+                print(f"✅ Live event inserted: {event_id}")
+            except Exception as e:
+                print(f"❌ DB insert failed for {event_id}: {e}")
+
+    except Exception as e:
+        print(f"⚠️ Live logging error: {e}")
+
+
 def gen_frames():
-    global camera, is_streaming, log_threads
+    global camera, is_streaming, log_threads, stop_logging
+    frame_count = 0
+    stop_logging = False
 
     while is_streaming and camera is not None and camera.isOpened():
         success, frame = camera.read()
         if not success:
             break
+        frame_count += 1
 
-        # Replace with your actual model inference
-        # results = model(frame)
-        # annotated = results[0].plot()
-        annotated = frame  # For now just show raw frame
+        # Model inference & annotate
+        results = model(frame)
+        annotated = results[0].plot()
 
-        # Start DB logging in a separate thread
-        if is_streaming:
-            t = threading.Thread(target=log_event_async, args=(frame.copy(), None))
+        # DB logging every FRAME_INTERVAL frames
+        if frame_count % FRAME_INTERVAL == 0 and not stop_logging:
+            t = threading.Thread(target=log_event_async, args=(frame.copy(),))
             t.start()
             log_threads.append(t)
 
-        # Encode frame to JPEG
         _, buffer = cv2.imencode(".jpg", annotated)
         frame_bytes = buffer.tobytes()
         yield (b"--frame\r\n"
                b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
 
-    # Cleanup after stopping
+    # Cleanup
     print("🛑 Stream stopped, releasing camera.")
     if camera is not None:
         camera.release()
         camera = None
     is_streaming = False
+    stop_logging = True
 
-    # Wait for all DB logging threads to finish
     for t in log_threads:
         t.join()
     log_threads.clear()
+
 
 @app.get("/api/start_stream")
 def start_stream():
@@ -429,18 +509,17 @@ def start_stream():
     if is_streaming:
         return {"status": "already streaming"}
 
-    camera = cv2.VideoCapture(0)  # Or your video source
+    camera = cv2.VideoCapture(0)
     is_streaming = True
-    # Use StreamingResponse to stream the generator to the frontend
     return StreamingResponse(gen_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
+
 
 @app.get("/api/stop_stream")
 def stop_stream():
-    global is_streaming
+    global is_streaming, stop_logging
     if not is_streaming:
         return {"status": "not streaming"}
-    
-    # Setting the flag will stop the streaming generator
-    is_streaming = False
-    return {"status": "stopping stream"}
 
+    is_streaming = False
+    stop_logging = True
+    return {"status": "stopping stream"}

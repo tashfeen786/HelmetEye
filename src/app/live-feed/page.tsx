@@ -18,7 +18,6 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function LiveFeedPage() {
@@ -36,18 +35,14 @@ export default function LiveFeedPage() {
     setIsStartingStream(true);
     try {
       if (!isLive) {
-        // ✅ Call backend API to start live stream
-        const res = await fetch("http://localhost:8000/api/start_stream");
-        if (!res.ok) throw new Error("Failed to start stream");
-        await res.json();
-
+        // ✅ Start stream: the <img> tag will handle MJPEG
         setIsLive(true);
         toast({
           title: "Live feed started",
           description: "Streaming from server has begun.",
         });
       } else {
-        // ✅ Call backend API to stop live stream
+        // ✅ Stop backend stream
         await fetch("http://localhost:8000/api/stop_stream");
         setIsLive(false);
         toast({
@@ -155,7 +150,7 @@ export default function LiveFeedPage() {
                 <div className="relative aspect-video w-full bg-muted rounded-lg overflow-hidden">
                   {isLive ? (
                     <img
-                      src="http://localhost:8000/api/live_feed"
+                      src="http://localhost:8000/api/start_stream"
                       alt="Live Detection Feed"
                       className="w-full h-full object-cover"
                     />
