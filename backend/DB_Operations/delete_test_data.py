@@ -9,7 +9,9 @@ def delete_test_records():
 
             # List of test record IDs to delete
             test_ids = [
-                'evt-35197a74', 'evt-4dcd3d85', 'evt-2c3822a6'
+                'evt-41cfd7a5',
+'evt-3a65899f',
+'evt-c5cd8296', 
                 ]
 
             # Delete records with these IDs

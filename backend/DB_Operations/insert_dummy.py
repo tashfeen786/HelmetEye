@@ -28,9 +28,9 @@ def insert_dummy_data():
 
             # ✅ Sample data (you can uncomment or expand this)
             sample_data = [
-               # ("evt-001", "2025-10-30", "18:32", "Kotli Basheer, AJK", "ISB-123", 0, "https://your-image-url.com/image1.png"),
-                #("evt-002", "2025-10-30", "19:10", "Kotli Basheer, AJK", "ISB-456", 1, "https://your-image-url.com/image2.png"),
-                #("evt-003", "2025-10-30", "21:30", "Kotli MS Hostel, AJK", "ISB-789", 0, "https://your-image-url.com/image3.png"),
+                ("evt-001", "2025-10-30", "18:32", "Kotli Basheer, AJK", "ISB-123", 0, "https://your-image-url.com/image1.png"),
+                ("evt-002", "2025-10-30", "19:10", "Kotli Basheer, AJK", "ISB-456", 1, "https://your-image-url.com/image2.png"),
+                ("evt-003", "2025-10-30", "21:30", "Kotli MS Hostel, AJK", "ISB-789", 0, "https://your-image-url.com/image3.png"),
                 ("evt-004", "2025-11-01", "21:30", "Kotli MS Hostel, AJK", "ISB-789", 0, "https://your-image-url.com/image3.png"),
                 ("evt-005", "2025-11-01", "21:30", "Kotli college road, AJK", "ajk-759", 0, "https://your-image-url.com/image3.png"),
             ]
