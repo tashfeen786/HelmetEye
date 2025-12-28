@@ -233,7 +233,7 @@ async def detect_helmet(file: UploadFile = File(...)):
                 "id": event_id,
                 "date": datetime.now().strftime("%Y-%m-%d"),
                 "time": datetime.now().strftime("%H:%M"),
-                "location": "MS Boys College Road, AJK",
+                "location": "UOK AJK",
                 "number_plate": plate_text,
                 "has_helmet": has_helmet,
                 "image_url": f"/uploads/{detected_filename}",

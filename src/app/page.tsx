@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { HelmetEyeLogo } from '@/components/helmet-eye-logo';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useRef } from 'react';
+import bg from '@/assets/background.jpeg'
 
 export default function LandingPage() {
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -34,7 +35,7 @@ export default function LandingPage() {
       <main className="flex-1">
         <section className="relative flex items-center justify-center w-full h-screen">
           <Image
-            src="https://placehold.co/1920x1080.png"
+          src={bg}
             alt="Bikers on a road"
             layout="fill"
             objectFit="cover"
