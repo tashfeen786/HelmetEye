@@ -55,26 +55,26 @@ everything to a database — with zero human intervention.
 | 🚀 Hosting | Firebase App Hosting |
 
 ---
-
 ## 🏗️ Project Structure
+
+```
 HelmetEye/
 │
-├── backend/              # Python FastAPI backend
-│   ├── models/           # YOLOv12 model files
-│   ├── routes/           # API endpoints
-│   ├── ocr/              # Number plate OCR logic
-│   └── main.py           # FastAPI entry point
+├── backend/                  # Python FastAPI backend
+│   ├── models/               # YOLOv12 model files
+│   ├── routes/               # API endpoints
+│   ├── ocr/                  # Number plate OCR logic
+│   └── main.py               # FastAPI entry point
 │
-├── src/                  # Next.js frontend
+├── src/                      # Next.js frontend
 │   └── app/
-│       └── page.tsx      # Main dashboard page
+│       └── page.tsx          # Main dashboard page
 │
-├── docs/                 # Project documentation
-├── next.config.ts        # Next.js configuration
-├── tailwind.config.ts    # Tailwind CSS config
-└── apphosting.yaml       # Firebase hosting config
-
----
+├── docs/                     # Project documentation
+├── next.config.ts            # Next.js configuration
+├── tailwind.config.ts        # Tailwind CSS config
+└── apphosting.yaml           # Firebase hosting config
+```
 
 ## 🔄 How It Works
 📹 Live Video Feed
